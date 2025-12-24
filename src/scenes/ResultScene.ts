@@ -1,7 +1,9 @@
 import Phaser from 'phaser'
+import type { DifficultyId } from '../config/difficulty'
 import { createButton } from '../ui/components/UiButton'
 import { createGlassPanel } from '../ui/components/GlassPanel'
 import { createUnderwaterBackground, type UnderwaterBackground } from '../ui/fx/UnderwaterBackground'
+import { loadSettings } from '../systems/SettingsStore'
 
 type ResultData = {
   score: number
@@ -10,16 +12,29 @@ type ResultData = {
   popped: number
   missed: number
   cps: number
+  difficultyId?: DifficultyId
 }
 
 export class ResultScene extends Phaser.Scene {
   private backdropFx?: UnderwaterBackground
+  private lastData?: ResultData
 
   constructor() {
     super('Result')
   }
 
-  create(data: ResultData) {
+  create(data?: Partial<ResultData>) {
+    const resolved: ResultData = {
+      score: data?.score ?? 0,
+      accuracy: data?.accuracy ?? 1,
+      longestCombo: data?.longestCombo ?? 0,
+      popped: data?.popped ?? 0,
+      missed: data?.missed ?? 0,
+      cps: data?.cps ?? 0,
+      difficultyId: data?.difficultyId
+    }
+
+    this.lastData = resolved
     this.cameras.main.fadeIn(520, 4, 10, 18)
     const uiScale = Phaser.Math.Clamp(Math.min(this.scale.width / 1280, this.scale.height / 720), 0.82, 1.15)
     const centerX = this.scale.width / 2
@@ -54,12 +69,12 @@ export class ResultScene extends Phaser.Scene {
       .setShadow(0, 12, 'rgba(0,0,0,0.35)', 22, true, true)
 
     const stats = [
-      `Score: ${data.score}`,
-      `Accuracy: ${(data.accuracy * 100).toFixed(0)}%`,
-      `Longest Streak: ${data.longestCombo}`,
-      `Bubbles Popped: ${data.popped}`,
-      `Bubbles Missed: ${data.missed}`,
-      `Chars/sec: ${data.cps.toFixed(1)}`
+      `Score: ${resolved.score}`,
+      `Accuracy: ${(resolved.accuracy * 100).toFixed(0)}%`,
+      `Longest Streak: ${resolved.longestCombo}`,
+      `Bubbles Popped: ${resolved.popped}`,
+      `Bubbles Missed: ${resolved.missed}`,
+      `Chars/sec: ${resolved.cps.toFixed(1)}`
     ]
 
     const statTexts = stats.map((line, index) =>
@@ -75,15 +90,67 @@ export class ResultScene extends Phaser.Scene {
     )
 
     let transitioning = false
-    const backButton = createButton(this, centerX, this.scale.height - Math.round(90 * uiScale), 'Back to Menu', () => {
+    const buttonWidth = Math.min(Math.round(320 * uiScale), this.scale.width - 80)
+    const resolvedDifficulty = resolved.difficultyId ?? loadSettings().difficulty ?? 'level1'
+
+    let playAgainButton: Phaser.GameObjects.Container | undefined
+    let backButton: Phaser.GameObjects.Container | undefined
+
+    const restartWithData = () => {
+      if (transitioning) return
+      this.scene.restart(this.lastData)
+    }
+    this.scale.on('resize', restartWithData)
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (transitioning) return
+      if (event.key === 'Enter' || event.key === 'r' || event.key === 'R') {
+        startWithFade(() => this.scene.start('Game', { difficulty: resolvedDifficulty }))
+        return
+      }
+      if (event.key === 'Escape' || event.key === 'm' || event.key === 'M') {
+        startWithFade(() => this.scene.start('Menu'))
+      }
+    }
+    this.input.keyboard?.on('keydown', onKeyDown)
+
+    const startWithFade = (start: () => void) => {
       if (transitioning) return
       transitioning = true
-      backButton.disableInteractive()
+      playAgainButton?.disableInteractive()
+      backButton?.disableInteractive()
+      this.scale.off('resize', restartWithData)
+      this.input.keyboard?.off('keydown', onKeyDown)
+
+      let started = false
+      const doStart = () => {
+        if (started) return
+        started = true
+        start()
+      }
+
       this.cameras.main.fadeOut(240, 4, 10, 18)
-      this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-        this.scene.start('Menu')
-      })
-    }, { width: Math.min(Math.round(320 * uiScale), this.scale.width - 80), height: Math.round(60 * uiScale), depth: 10 })
+      this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, doStart)
+      this.time.delayedCall(280, doStart)
+    }
+
+    playAgainButton = createButton(
+      this,
+      centerX,
+      this.scale.height - Math.round(160 * uiScale),
+      'Play Again',
+      () => startWithFade(() => this.scene.start('Game', { difficulty: resolvedDifficulty })),
+      { width: buttonWidth, height: Math.round(60 * uiScale), depth: 10, accent: 0xffcf66 }
+    )
+
+    backButton = createButton(
+      this,
+      centerX,
+      this.scale.height - Math.round(90 * uiScale),
+      'Back to Menu',
+      () => startWithFade(() => this.scene.start('Menu')),
+      { width: buttonWidth, height: Math.round(60 * uiScale), depth: 10 }
+    )
 
     const vignette = this.add
       .image(centerX, this.scale.height / 2, 'vignette')
@@ -92,7 +159,7 @@ export class ResultScene extends Phaser.Scene {
       .setDepth(90)
     vignette.setScale(Math.max(this.scale.width, this.scale.height) / 512)
 
-    const entrance = [...statTexts, backButton].filter(Boolean) as Phaser.GameObjects.GameObject[]
+    const entrance = [...statTexts, playAgainButton, backButton].filter(Boolean) as Phaser.GameObjects.GameObject[]
     entrance.forEach((obj) => {
       const anyObj = obj as unknown as Phaser.GameObjects.Components.Transform &
         Phaser.GameObjects.Components.Alpha & { y: number; alpha: number }
@@ -109,8 +176,9 @@ export class ResultScene extends Phaser.Scene {
       delay: 160
     })
 
-    this.scale.on('resize', () => this.scene.restart())
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.scale.off('resize', restartWithData)
+      this.input.keyboard?.off('keydown', onKeyDown)
       this.backdropFx?.destroy()
       this.backdropFx = undefined
     })

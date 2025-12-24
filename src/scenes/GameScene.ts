@@ -23,6 +23,16 @@ type HudRefs = {
   bufferGlow: Phaser.GameObjects.Image
 }
 
+type ResultPayload = {
+  score: number
+  accuracy: number
+  longestCombo: number
+  popped: number
+  missed: number
+  cps: number
+  difficultyId: DifficultyId
+}
+
 export class GameScene extends Phaser.Scene {
   private bubbleManager!: BubbleManager
   private typingSystem!: TypingSystem
@@ -54,6 +64,8 @@ export class GameScene extends Phaser.Scene {
   private missed = 0
   private startTime = 0
   private readonly windForce = new Phaser.Math.Vector2(0, 0)
+  private pendingResult?: ResultPayload
+  private endRequested = false
 
   constructor() {
     super('Game')
@@ -70,6 +82,8 @@ export class GameScene extends Phaser.Scene {
     this.lastCombo = 0
     this.lastLives = 5
     this.isEnding = false
+    this.endRequested = false
+    this.pendingResult = undefined
     this.popped = 0
     this.missed = 0
 
@@ -148,6 +162,19 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(time: number, delta: number) {
+    if (this.endRequested && !this.pendingResult) {
+      this.finalizeEndGame()
+    }
+
+    if (this.pendingResult) {
+      const payload = this.pendingResult
+      this.pendingResult = undefined
+      this.scene.start('Result', payload)
+      return
+    }
+
+    if (this.isEnding) return
+
     const config = DIFFICULTY[this.difficultyId]
     this.backdropFx?.update(time, delta)
     this.bubbleManager.update(delta)
@@ -216,37 +243,57 @@ export class GameScene extends Phaser.Scene {
     this.audio.playSplash()
     this.effects.shake(0.004, 140)
     this.bubbleManager.release(bubble)
+    this.typingSystem.reset()
+    this.hud.buffer.setText('')
     this.updateHud()
 
     if (this.lives <= 0) {
-      this.endGame()
+      this.requestEndGame()
     }
   }
 
-  private endGame() {
-    if (this.isEnding) return
+  private requestEndGame() {
+    if (this.endRequested) return
+    this.endRequested = true
     this.isEnding = true
+  }
 
-    this.spawnTimer?.destroy()
-    this.typingSystem.destroy()
-    const stats = this.typingSystem.getStats()
-    const duration = (this.time.now - this.startTime) / 1000
-    const accuracy = stats.totalKeys > 0 ? stats.correctKeys / stats.totalKeys : 1
-    const charsPerSecond = stats.correctKeys / Math.max(1, duration)
+  private finalizeEndGame() {
+    if (this.pendingResult) return
 
-    const payload = {
-      score: this.score,
-      accuracy,
-      longestCombo: this.longestCombo,
-      popped: this.popped,
-      missed: this.missed,
-      cps: charsPerSecond
+    try {
+      this.spawnTimer?.destroy()
+      this.typingSystem.destroy()
+      this.matter.world.off('collisionstart', this.handleCollision, this)
+
+      const stats = this.typingSystem.getStats()
+      const duration = (this.time.now - this.startTime) / 1000
+      const accuracy = stats.totalKeys > 0 ? stats.correctKeys / stats.totalKeys : 1
+      const charsPerSecond = stats.correctKeys / Math.max(1, duration)
+
+      const payload: ResultPayload = {
+        score: this.score,
+        accuracy,
+        longestCombo: this.longestCombo,
+        popped: this.popped,
+        missed: this.missed,
+        cps: charsPerSecond,
+        difficultyId: this.difficultyId
+      }
+
+      this.pendingResult = payload
+    } catch (error) {
+      console.error('[GameScene] finalizeEndGame failed', error)
+      this.pendingResult = {
+        score: this.score,
+        accuracy: 1,
+        longestCombo: this.longestCombo,
+        popped: this.popped,
+        missed: this.missed,
+        cps: 0,
+        difficultyId: this.difficultyId
+      }
     }
-
-    this.cameras.main.fadeOut(260, 4, 10, 18)
-    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-      this.scene.start('Result', payload)
-    })
   }
 
   private createWaterline() {
@@ -448,30 +495,34 @@ export class GameScene extends Phaser.Scene {
   }
 
   private cleanup() {
-    this.spawnTimer?.destroy()
-    this.spawnTimer = undefined
+    try {
+      this.spawnTimer?.destroy()
+      this.spawnTimer = undefined
 
-    this.typingSystem?.destroy()
-    this.matter.world.off('collisionstart', this.handleCollision, this)
-    this.scale.off('resize', this.handleResize, this)
+      this.typingSystem?.destroy()
+      this.matter.world.off('collisionstart', this.handleCollision, this)
+      this.scale.off('resize', this.handleResize, this)
 
-    this.bubbleManager?.clear()
+      this.bubbleManager?.clear()
 
-    this.backdropFx?.destroy()
-    this.backdropFx = undefined
+      this.backdropFx?.destroy()
+      this.backdropFx = undefined
 
-    this.water?.destroy()
-    this.water = undefined
-    this.waterCausticsA?.destroy()
-    this.waterCausticsA = undefined
-    this.waterCausticsB?.destroy()
-    this.waterCausticsB = undefined
-    this.waterSurface?.destroy()
-    this.waterSurface = undefined
-    this.waterFoam?.destroy()
-    this.waterFoam = undefined
-    this.waterMask?.destroy()
-    this.waterMask = undefined
+      this.water?.destroy()
+      this.water = undefined
+      this.waterCausticsA?.destroy()
+      this.waterCausticsA = undefined
+      this.waterCausticsB?.destroy()
+      this.waterCausticsB = undefined
+      this.waterSurface?.destroy()
+      this.waterSurface = undefined
+      this.waterFoam?.destroy()
+      this.waterFoam = undefined
+      this.waterMask?.destroy()
+      this.waterMask = undefined
+    } catch (error) {
+      console.error('[GameScene] cleanup failed', error)
+    }
   }
 
   private createHud() {
