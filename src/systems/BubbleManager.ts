@@ -5,6 +5,7 @@ export type BubbleItem = {
   id: number
   sprite: Phaser.Physics.Matter.Sprite
   halo: Phaser.GameObjects.Sprite
+  spec: Phaser.GameObjects.Sprite
   labelMatch: Phaser.GameObjects.Text
   labelRest: Phaser.GameObjects.Text
   labelContainer: Phaser.GameObjects.Container
@@ -59,6 +60,10 @@ export class BubbleManager {
     bubble.halo.setAlpha(0)
     bubble.halo.setVisible(true)
 
+    bubble.spec.setScale((radius * 2) / 256)
+    bubble.spec.setAlpha(0.22)
+    bubble.spec.setVisible(true)
+
     bubble.labelMatch.setText('')
     bubble.labelRest.setText(word)
     bubble.labelContainer.setVisible(true)
@@ -79,7 +84,22 @@ export class BubbleManager {
       bubble.sprite.setScale((bubble.radius * 2) / 256 + wobble * 0.05 + targetBoost)
 
       bubble.halo.setPosition(bubble.sprite.x, bubble.sprite.y)
+      bubble.halo.setRotation(-wobble * 0.8)
+      if (bubble.isTarget) {
+        const pulse = 1 + Math.sin(bubble.wobblePhase * 2.2) * 0.06
+        bubble.halo.setScale(((bubble.radius * 2) / 256) * 1.15 * pulse)
+      }
+
+      bubble.spec.setPosition(
+        bubble.sprite.x - bubble.radius * 0.18,
+        bubble.sprite.y - bubble.radius * 0.22
+      )
+      bubble.spec.setRotation(wobble)
+      bubble.spec.setAlpha(bubble.isTarget ? 0.34 : 0.22)
+      bubble.spec.setScale(((bubble.radius * 2) / 256) * (bubble.isTarget ? 1.02 : 1))
+
       bubble.labelContainer.setPosition(bubble.sprite.x, bubble.sprite.y)
+      bubble.labelContainer.setScale(bubble.isTarget ? 1.04 : 1)
     })
   }
 
@@ -109,6 +129,7 @@ export class BubbleManager {
     bubble.sprite.setVisible(false)
     bubble.sprite.setPosition(-9999, -9999)
     bubble.halo.setVisible(false)
+    bubble.spec.setVisible(false)
     bubble.labelContainer.setVisible(false)
     bubble.progress = 0
     bubble.isTarget = false
@@ -133,6 +154,10 @@ export class BubbleManager {
     sprite.setCollidesWith(0x0001)
 
     const halo = this.scene.add.sprite(0, 0, 'halo').setDepth(2)
+    halo.setBlendMode(Phaser.BlendModes.ADD)
+
+    const spec = this.scene.add.sprite(0, 0, 'bubbleSpec').setDepth(3.2)
+    spec.setBlendMode(Phaser.BlendModes.SCREEN)
     const labelMatch = this.scene.add.text(0, 0, '', {
       fontFamily: 'BubbleDisplay',
       fontSize: '20px',
@@ -156,6 +181,7 @@ export class BubbleManager {
       id: this.idCounter++,
       sprite,
       halo,
+      spec,
       labelMatch,
       labelRest,
       labelContainer,

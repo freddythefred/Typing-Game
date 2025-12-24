@@ -7,13 +7,20 @@ import { AudioSystem } from '../systems/AudioSystem'
 import { loadSettings } from '../systems/SettingsStore'
 import { getBank, pickWord } from '../data/wordBank'
 import { validateWordBank } from '../data/validate'
+import { createGlassPanel } from '../ui/components/GlassPanel'
+import { createUnderwaterBackground, type UnderwaterBackground } from '../ui/fx/UnderwaterBackground'
 
 type HudRefs = {
+  panel: Phaser.GameObjects.Container
+  bufferPanel: Phaser.GameObjects.Container
   score: Phaser.GameObjects.Text
   combo: Phaser.GameObjects.Text
   accuracy: Phaser.GameObjects.Text
   lives: Phaser.GameObjects.Text
   buffer: Phaser.GameObjects.Text
+  comboBar: Phaser.GameObjects.Graphics
+  lifeBubbles: Phaser.GameObjects.Sprite[]
+  bufferGlow: Phaser.GameObjects.Image
 }
 
 export class GameScene extends Phaser.Scene {
@@ -22,7 +29,9 @@ export class GameScene extends Phaser.Scene {
   private effects!: EffectsSystem
   private audio!: AudioSystem
   private difficultyId: DifficultyId = 'level1'
+  private backdropFx?: UnderwaterBackground
   private water!: Phaser.GameObjects.TileSprite
+  private waterShine?: Phaser.GameObjects.TileSprite
   private spawnTimer?: Phaser.Time.TimerEvent
   private hud!: HudRefs
   private settings = loadSettings()
@@ -30,6 +39,10 @@ export class GameScene extends Phaser.Scene {
   private combo = 0
   private longestCombo = 0
   private lives = 5
+  private lastScore = 0
+  private lastCombo = 0
+  private lastLives = 5
+  private isEnding = false
   private popped = 0
   private missed = 0
   private startTime = 0
@@ -46,6 +59,10 @@ export class GameScene extends Phaser.Scene {
     this.combo = 0
     this.longestCombo = 0
     this.lives = 5
+    this.lastScore = 0
+    this.lastCombo = 0
+    this.lastLives = 5
+    this.isEnding = false
     this.popped = 0
     this.missed = 0
 
@@ -57,7 +74,17 @@ export class GameScene extends Phaser.Scene {
       validateWordBank(getBank(this.settings.language), this.settings.language)
     }
 
-    this.addGradientBackdrop()
+    this.cameras.main.fadeIn(360, 4, 10, 18)
+
+    this.backdropFx?.destroy()
+    this.backdropFx = createUnderwaterBackground(this, {
+      depth: -12,
+      withDust: true,
+      withPointerLight: true,
+      withShafts: true,
+      accent: 0x66e3ff
+    })
+
     this.createWaterline()
 
     this.matter.world.setBounds(0, 0, this.scale.width, this.scale.height, 64, true, true, false, true)
@@ -75,11 +102,13 @@ export class GameScene extends Phaser.Scene {
     this.typingSystem = new TypingSystem(this, this.bubbleManager, {
       onCorrectKey: () => {
         this.audio.playTick()
+        this.flashBuffer(0x66e3ff, 0.15)
       },
       onErrorKey: () => {
         this.combo = 0
         this.audio.playError()
         this.effects.shake(0.006, 120)
+        this.flashBuffer(0xff5a7a, 0.22)
         this.updateHud()
       },
       onComplete: (bubble) => {
@@ -102,10 +131,18 @@ export class GameScene extends Phaser.Scene {
 
     this.scale.on('resize', this.handleResize, this)
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.cleanup, this)
+
+    const vignette = this.add
+      .image(this.scale.width / 2, this.scale.height / 2, 'vignette')
+      .setBlendMode(Phaser.BlendModes.MULTIPLY)
+      .setAlpha(0.12)
+      .setDepth(90)
+    vignette.setScale(Math.max(this.scale.width, this.scale.height) / 512)
   }
 
   update(time: number, delta: number) {
     const config = DIFFICULTY[this.difficultyId]
+    this.backdropFx?.update(time, delta)
     this.bubbleManager.update(delta)
 
     this.bubbleManager.getActiveBubbles().forEach((bubble) => {
@@ -115,7 +152,13 @@ export class GameScene extends Phaser.Scene {
     })
 
     this.water.tilePositionX += delta * 0.03
-    this.hud.buffer.setText(this.typingSystem.getBuffer())
+    if (this.waterShine) {
+      this.waterShine.tilePositionX -= delta * 0.045
+      this.waterShine.tilePositionY += delta * 0.03
+    }
+
+    const caret = Math.floor(time / 450) % 2 === 0 ? '▍' : ''
+    this.hud.buffer.setText(`${this.typingSystem.getBuffer()}${caret}`)
     this.updateHud()
   }
 
@@ -177,6 +220,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private endGame() {
+    if (this.isEnding) return
+    this.isEnding = true
+
     this.spawnTimer?.destroy()
     this.typingSystem.destroy()
     const stats = this.typingSystem.getStats()
@@ -184,13 +230,18 @@ export class GameScene extends Phaser.Scene {
     const accuracy = stats.totalKeys > 0 ? stats.correctKeys / stats.totalKeys : 1
     const charsPerSecond = stats.correctKeys / Math.max(1, duration)
 
-    this.scene.start('Result', {
+    const payload = {
       score: this.score,
       accuracy,
       longestCombo: this.longestCombo,
       popped: this.popped,
       missed: this.missed,
       cps: charsPerSecond
+    }
+
+    this.cameras.main.fadeOut(260, 4, 10, 18)
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      this.scene.start('Result', payload)
     })
   }
 
@@ -201,6 +252,16 @@ export class GameScene extends Phaser.Scene {
       .tileSprite(0, height - waterHeight, this.scale.width, waterHeight, 'water')
       .setOrigin(0, 0)
       .setDepth(1)
+
+    this.waterShine?.destroy()
+    this.waterShine = this.add
+      .tileSprite(0, height - waterHeight, this.scale.width, waterHeight, 'noise')
+      .setOrigin(0, 0)
+      .setDepth(2)
+      .setAlpha(0.085)
+      .setScale(1.5)
+      .setTint(0x66e3ff)
+      .setBlendMode(Phaser.BlendModes.ADD)
     this.matter.add.rectangle(
       this.scale.width / 2,
       height - waterHeight / 2,
@@ -228,87 +289,252 @@ export class GameScene extends Phaser.Scene {
     this.scale.off('resize', this.handleResize, this)
 
     this.bubbleManager?.clear()
+
+    this.backdropFx?.destroy()
+    this.backdropFx = undefined
+    this.waterShine?.destroy()
+    this.waterShine = undefined
   }
 
   private createHud() {
-    const panel = this.add.graphics().setDepth(8)
-    panel.fillStyle(0xffffff, 0.12)
-    panel.fillRoundedRect(20, 20, 360, 140, 18)
-    panel.lineStyle(2, 0xffffff, 0.2)
-    panel.strokeRoundedRect(20, 20, 360, 140, 18)
+    const uiScale = Phaser.Math.Clamp(Math.min(this.scale.width / 1280, this.scale.height / 720), 0.82, 1.15)
+    const marginX = Math.round(30 * uiScale)
+    const marginY = Math.round(26 * uiScale)
+    const pad = Math.round(26 * uiScale)
+    const depth = 20
+    const panelWidth = Math.min(Math.round(440 * uiScale), this.scale.width - marginX * 2)
+    const panelHeight = Math.round(180 * uiScale)
+    const panel = createGlassPanel(
+      this,
+      marginX + panelWidth / 2,
+      marginY + panelHeight / 2,
+      panelWidth,
+      panelHeight,
+      {
+        depth,
+        radius: Math.round(28 * uiScale),
+        accent: 0x66e3ff
+      }
+    )
+
+    const scoreLabel = this.add.text(-panelWidth / 2 + pad, -panelHeight / 2 + Math.round(18 * uiScale), 'SCORE', {
+      fontFamily: 'BubbleDisplay',
+      fontSize: `${Math.round(12 * uiScale)}px`,
+      color: 'rgba(234,246,255,0.62)'
+    })
+    scoreLabel.setOrigin(0, 0)
+
+    const score = this.add.text(-panelWidth / 2 + pad, -panelHeight / 2 + Math.round(36 * uiScale), '0', {
+      fontFamily: 'BubbleDisplay',
+      fontSize: `${Math.round(36 * uiScale)}px`,
+      color: '#eaf6ff'
+    })
+    score.setOrigin(0, 0)
+    score.setShadow(0, 8, 'rgba(0,0,0,0.35)', 18, false, true)
+
+    const comboLabel = this.add.text(panelWidth / 2 - pad, -panelHeight / 2 + Math.round(18 * uiScale), 'COMBO', {
+      fontFamily: 'BubbleDisplay',
+      fontSize: `${Math.round(12 * uiScale)}px`,
+      color: 'rgba(234,246,255,0.62)'
+    })
+    comboLabel.setOrigin(1, 0)
+
+    const combo = this.add.text(panelWidth / 2 - pad, -panelHeight / 2 + Math.round(36 * uiScale), '0', {
+      fontFamily: 'BubbleDisplay',
+      fontSize: `${Math.round(36 * uiScale)}px`,
+      color: '#66e3ff'
+    })
+    combo.setOrigin(1, 0)
+    combo.setShadow(0, 8, 'rgba(0,0,0,0.35)', 18, false, true)
+
+    const barW = Math.round(170 * uiScale)
+    const barX = panelWidth / 2 - pad - barW
+    const barY = -panelHeight / 2 + Math.round(84 * uiScale)
+    const barH = Math.max(10, Math.round(12 * uiScale))
+    const comboBar = this.add.graphics()
+    comboBar.setDataEnabled()
+    comboBar.setData('x', barX)
+    comboBar.setData('y', barY)
+    comboBar.setData('w', barW)
+    comboBar.setData('h', barH)
+    comboBar.setData('r', Math.round(8 * uiScale))
+
+    const accuracy = this.add.text(-panelWidth / 2 + pad, -panelHeight / 2 + Math.round(92 * uiScale), '', {
+      fontFamily: 'BubbleDisplay',
+      fontSize: `${Math.round(16 * uiScale)}px`,
+      color: 'rgba(234,246,255,0.72)'
+    })
+    accuracy.setOrigin(0, 0)
+
+    const lives = this.add.text(-panelWidth / 2 + pad, -panelHeight / 2 + Math.round(120 * uiScale), '', {
+      fontFamily: 'BubbleDisplay',
+      fontSize: `${Math.round(16 * uiScale)}px`,
+      color: 'rgba(234,246,255,0.72)'
+    })
+    lives.setOrigin(0, 0)
+
+    const lifeBubbles: Phaser.GameObjects.Sprite[] = []
+    for (let i = 0; i < 5; i += 1) {
+      const icon = this.add.sprite(
+        -panelWidth / 2 + pad + i * Math.round(30 * uiScale),
+        -panelHeight / 2 + Math.round(152 * uiScale),
+        'bubble'
+      )
+      const scale = 0.12 * uiScale
+      icon.setScale(scale)
+      icon.setDataEnabled()
+      icon.setData('activeScale', scale)
+      icon.setData('inactiveScale', scale * 0.79)
+      icon.setAlpha(0.55)
+      icon.setTint(0xffffff)
+      icon.setBlendMode(Phaser.BlendModes.NORMAL)
+      lifeBubbles.push(icon)
+    }
+
+    panel.add([scoreLabel, score, comboLabel, combo, comboBar, accuracy, lives, ...lifeBubbles])
+
+    const bufferWidth = Math.min(Math.round(680 * uiScale), this.scale.width - Math.round(80 * uiScale))
+    const bufferHeight = Math.round(76 * uiScale)
+    const bufferPanel = createGlassPanel(this, this.scale.width / 2, this.scale.height - Math.round(70 * uiScale), bufferWidth, bufferHeight, {
+      depth,
+      radius: Math.round(26 * uiScale),
+      accent: 0xffcf66,
+      animateSheen: false
+    })
+
+    const bufferGlow = this.add
+      .image(0, 0, 'light')
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setTint(0x66e3ff)
+      .setAlpha(0)
+    bufferGlow.setScale(bufferWidth / 512)
+    bufferPanel.addAt(bufferGlow, 1)
+
+    const buffer = this.add.text(0, 0, '', {
+      fontFamily: 'BubbleDisplay',
+      fontSize: `${Math.round(28 * uiScale)}px`,
+      color: '#eaf6ff'
+    })
+    buffer.setOrigin(0.5)
+    buffer.setShadow(0, 10, 'rgba(0,0,0,0.35)', 18, false, true)
+    bufferPanel.add(buffer)
 
     this.hud = {
-      score: this.add.text(40, 40, '', {
-        fontFamily: 'BubbleDisplay',
-        fontSize: '20px',
-        color: '#eaf6ff'
-      }).setDepth(9),
-      combo: this.add.text(40, 70, '', {
-        fontFamily: 'BubbleDisplay',
-        fontSize: '18px',
-        color: '#66e3ff'
-      }).setDepth(9),
-      accuracy: this.add.text(40, 98, '', {
-        fontFamily: 'BubbleDisplay',
-        fontSize: '16px',
-        color: 'rgba(234,246,255,0.7)'
-      }).setDepth(9),
-      lives: this.add.text(40, 122, '', {
-        fontFamily: 'BubbleDisplay',
-        fontSize: '16px',
-        color: 'rgba(234,246,255,0.7)'
-      }).setDepth(9),
-      buffer: this.add.text(this.scale.width / 2, this.scale.height - 60, '', {
-        fontFamily: 'BubbleDisplay',
-        fontSize: '24px',
-        color: '#eaf6ff'
-      }).setDepth(9)
+      panel,
+      bufferPanel,
+      score,
+      combo,
+      accuracy,
+      lives,
+      buffer,
+      comboBar,
+      lifeBubbles,
+      bufferGlow
     }
-    this.hud.buffer.setOrigin(0.5)
-
-    const bufferPanel = this.add.graphics().setDepth(8)
-    bufferPanel.fillStyle(0xffffff, 0.12)
-    bufferPanel.fillRoundedRect(
-      this.scale.width / 2 - 240,
-      this.scale.height - 90,
-      480,
-      60,
-      18
-    )
-    bufferPanel.lineStyle(2, 0xffffff, 0.2)
-    bufferPanel.strokeRoundedRect(
-      this.scale.width / 2 - 240,
-      this.scale.height - 90,
-      480,
-      60,
-      18
-    )
   }
 
   private updateHud() {
     const stats = this.typingSystem.getStats()
     const accuracy = stats.totalKeys > 0 ? (stats.correctKeys / stats.totalKeys) * 100 : 100
-    this.hud.score.setText(`Score: ${this.score}`)
-    this.hud.combo.setText(`Combo: ${this.combo}`)
-    this.hud.accuracy.setText(`Accuracy: ${accuracy.toFixed(0)}%`)
-    this.hud.lives.setText(`Lives: ${this.lives}`)
+
+    if (this.score !== this.lastScore) {
+      if (this.score > this.lastScore) this.punchText(this.hud.score, 1.06)
+      this.lastScore = this.score
+    }
+    if (this.combo !== this.lastCombo) {
+      if (this.combo > this.lastCombo) this.punchText(this.hud.combo, 1.1)
+      this.lastCombo = this.combo
+    }
+    if (this.lives !== this.lastLives) {
+      if (this.lives < this.lastLives) {
+        const index = Phaser.Math.Clamp(this.lives, 0, this.hud.lifeBubbles.length - 1)
+        const icon = this.hud.lifeBubbles[index]
+        const worldX = this.hud.panel.x + icon.x
+        const worldY = this.hud.panel.y + icon.y
+        const spark = this.add
+          .image(worldX, worldY, 'spark')
+          .setDepth(30)
+          .setBlendMode(Phaser.BlendModes.ADD)
+          .setTint(0xff5a7a)
+          .setAlpha(0.55)
+          .setScale(0.35)
+        this.tweens.add({
+          targets: spark,
+          alpha: 0,
+          scale: 1.2,
+          duration: 520,
+          ease: 'Sine.easeOut',
+          onComplete: () => spark.destroy()
+        })
+      }
+      this.lastLives = this.lives
+    }
+
+    this.hud.score.setText(`${this.score}`)
+    this.hud.combo.setText(`${this.combo}`)
+    this.hud.accuracy.setText(`Accuracy ${accuracy.toFixed(0)}%`)
+    this.hud.lives.setText(`Lives ${this.lives}/5`)
+
+    this.hud.lifeBubbles.forEach((icon, index) => {
+      const active = index < this.lives
+      icon.setAlpha(active ? 0.55 : 0.14)
+      const activeScale = (icon.getData('activeScale') as number) ?? icon.scaleX
+      const inactiveScale = (icon.getData('inactiveScale') as number) ?? icon.scaleX * 0.79
+      icon.setScale(active ? activeScale : inactiveScale)
+    })
+
+    const barX = this.hud.comboBar.getData('x') as number
+    const barY = this.hud.comboBar.getData('y') as number
+    const barW = this.hud.comboBar.getData('w') as number
+    const barH = this.hud.comboBar.getData('h') as number
+    const barR = this.hud.comboBar.getData('r') as number
+    const ratio = Phaser.Math.Clamp(this.combo / 16, 0, 1)
+
+    this.hud.comboBar.clear()
+    this.hud.comboBar.fillStyle(0xffffff, 0.08)
+    this.hud.comboBar.fillRoundedRect(barX, barY, barW, barH, barR)
+    this.hud.comboBar.fillStyle(0x66e3ff, 0.85)
+    this.hud.comboBar.fillRoundedRect(barX, barY, barW * ratio, barH, barR)
+    this.hud.comboBar.lineStyle(1, 0xffffff, 0.14)
+    this.hud.comboBar.strokeRoundedRect(barX, barY, barW, barH, barR)
   }
 
-  private addGradientBackdrop() {
-    const backdrop = this.add.graphics()
-    backdrop.fillGradientStyle(0x0c1f2d, 0x0c1f2d, 0x123349, 0x234863, 1)
-    backdrop.fillRect(0, 0, this.scale.width, this.scale.height)
-    backdrop.setDepth(-5)
+  private punchText(target: Phaser.GameObjects.Text, scale = 1.08) {
+    this.tweens.killTweensOf(target)
+    target.setScale(1)
+    this.tweens.add({
+      targets: target,
+      scale,
+      duration: 140,
+      yoyo: true,
+      ease: 'Sine.easeOut'
+    })
+  }
 
-    const bokeh = this.add.graphics()
-    bokeh.fillStyle(0x66e3ff, 0.08)
-    for (let i = 0; i < 7; i += 1) {
-      const x = Phaser.Math.Between(60, this.scale.width - 60)
-      const y = Phaser.Math.Between(60, this.scale.height - 60)
-      const radius = Phaser.Math.Between(70, 160)
-      bokeh.fillCircle(x, y, radius)
-    }
-    bokeh.setDepth(-4)
+  private flashBuffer(tint: number, alpha: number) {
+    if (!this.hud) return
+
+    this.tweens.killTweensOf(this.hud.bufferGlow)
+    this.tweens.killTweensOf(this.hud.bufferPanel)
+
+    this.hud.bufferGlow.setTint(tint)
+    this.hud.bufferGlow.setAlpha(0)
+    this.hud.bufferPanel.setScale(1)
+
+    this.tweens.add({
+      targets: this.hud.bufferGlow,
+      alpha,
+      duration: 90,
+      yoyo: true,
+      ease: 'Sine.easeOut'
+    })
+    this.tweens.add({
+      targets: this.hud.bufferPanel,
+      scale: 1.012,
+      duration: 90,
+      yoyo: true,
+      ease: 'Sine.easeOut'
+    })
   }
 
   private normalize(text: string, accentInsensitive: boolean) {

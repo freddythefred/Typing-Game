@@ -3,9 +3,11 @@ import { DIFFICULTY, type DifficultyId } from '../config/difficulty'
 import { createButton } from '../ui/components/UiButton'
 import { createGlassPanel } from '../ui/components/GlassPanel'
 import { loadSettings, saveSettings } from '../systems/SettingsStore'
+import { createUnderwaterBackground, type UnderwaterBackground } from '../ui/fx/UnderwaterBackground'
 
 type BackBubble = {
   sprite: Phaser.GameObjects.Sprite
+  spec: Phaser.GameObjects.Sprite
   speed: number
   drift: number
 }
@@ -13,6 +15,12 @@ type BackBubble = {
 export class MenuScene extends Phaser.Scene {
   private bubbles: BackBubble[] = []
   private difficultyId: DifficultyId = 'level1'
+  private backdropFx?: UnderwaterBackground
+  private heroBubble?: Phaser.GameObjects.Sprite
+  private heroSpec?: Phaser.GameObjects.Sprite
+  private title?: Phaser.GameObjects.Text
+  private titleBaseY = 96
+  private heroBaseY = 110
 
   constructor() {
     super('Menu')
@@ -22,83 +30,208 @@ export class MenuScene extends Phaser.Scene {
     const settings = loadSettings()
     this.difficultyId = settings.difficulty
 
-    this.addGradientBackdrop()
-    this.createBackgroundBubbles()
+    const uiScale = Phaser.Math.Clamp(Math.min(this.scale.width / 1280, this.scale.height / 720), 0.78, 1.2)
+    const centerX = this.scale.width / 2
+    this.titleBaseY = Math.round(96 * uiScale)
+    this.heroBaseY = Math.round(110 * uiScale)
 
-    const title = this.add.text(this.scale.width / 2, 90, 'Bubble Type', {
+    this.cameras.main.fadeIn(650, 4, 10, 18)
+    this.backdropFx?.destroy()
+    this.backdropFx = createUnderwaterBackground(this, {
+      depth: -12,
+      withDust: true,
+      withPointerLight: true,
+      withShafts: true
+    })
+
+    this.createBackgroundBubbles()
+    this.createHeroBubble(uiScale)
+
+    this.title = this.add.text(centerX, this.titleBaseY, 'Bubble Type', {
       fontFamily: 'BubbleDisplay',
-      fontSize: '52px',
+      fontSize: `${Math.round(64 * uiScale)}px`,
       color: '#eaf6ff'
     })
-    title.setOrigin(0.5)
+    this.title.setOrigin(0.5)
+    this.title.setStroke('rgba(102,227,255,0.22)', 8)
+    this.title.setShadow(0, 12, 'rgba(0,0,0,0.35)', 22, true, true)
+    this.title.setDepth(10)
 
-    createGlassPanel(this, this.scale.width / 2, 230, 720, 140)
+    const panelWidth = Math.min(Math.round(860 * uiScale), this.scale.width - 60)
+    const panelHeight = Math.round(190 * uiScale)
+    const panel = createGlassPanel(this, centerX, Math.round(250 * uiScale), panelWidth, panelHeight, {
+      depth: 6,
+      float: !window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches,
+      radius: Math.round(28 * uiScale),
+      accent: 0x66e3ff
+    })
+    panel.setDepth(6)
 
-    const difficultyTitle = this.add.text(this.scale.width / 2, 180, 'Choose Mode', {
+    const difficultyTitle = this.add.text(centerX, Math.round(188 * uiScale), 'Choose Mode', {
       fontFamily: 'BubbleDisplay',
-      fontSize: '22px',
-      color: 'rgba(234,246,255,0.7)'
+      fontSize: `${Math.round(20 * uiScale)}px`,
+      color: 'rgba(234,246,255,0.72)'
     })
     difficultyTitle.setOrigin(0.5)
+    difficultyTitle.setDepth(10)
 
     const cards = Object.values(DIFFICULTY).map((entry, index) => {
-      const cardWidth = 150
-      const spacing = 20
+      const spacing = Math.round(18 * uiScale)
+      const maxCardsWidth = Math.min(this.scale.width - 60, Math.round(920 * uiScale))
+      const cardWidth = Math.floor((maxCardsWidth - spacing * 3) / 4)
+      const cardHeight = Math.round(84 * uiScale)
       const totalWidth = cardWidth * 4 + spacing * 3
-      const startX = this.scale.width / 2 - totalWidth / 2 + cardWidth / 2
+      const startX = centerX - totalWidth / 2 + cardWidth / 2
       const x = startX + index * (cardWidth + spacing)
-      const y = 240
+      const y = Math.round(262 * uiScale)
 
-      const card = this.add.container(x, y)
-      const bg = this.add.graphics()
-      const label = this.add.text(0, -10, entry.label, {
+      const accent = entry.phraseMode ? 0xffcf66 : 0x66e3ff
+      const card = createGlassPanel(this, x, y, cardWidth, cardHeight, {
+        depth: 7,
+        radius: Math.round(22 * uiScale),
+        accent,
+        animateSheen: false
+      })
+      card.setSize(cardWidth, cardHeight)
+      card.setInteractive({ useHandCursor: true })
+
+      const halo = this.add
+        .image(0, 0, 'halo')
+        .setAlpha(0)
+        .setTint(accent)
+        .setBlendMode(Phaser.BlendModes.ADD)
+      halo.setScale((cardWidth / 256) * 1.55)
+      card.addAt(halo, 1)
+      card.setData('halo', halo)
+
+      const label = this.add.text(0, -16, entry.label, {
         fontFamily: 'BubbleDisplay',
-        fontSize: '18px',
+        fontSize: `${Math.round(18 * uiScale)}px`,
         color: '#eaf6ff'
       })
       label.setOrigin(0.5)
-      const sub = this.add.text(0, 18, entry.phraseMode ? 'Phrases' : 'Words', {
+      label.setShadow(0, 4, 'rgba(0,0,0,0.35)', 10, false, true)
+
+      const sub = this.add.text(0, 10, entry.phraseMode ? 'Phrases' : 'Words', {
         fontFamily: 'BubbleDisplay',
-        fontSize: '14px',
-        color: 'rgba(234,246,255,0.6)'
+        fontSize: `${Math.round(13 * uiScale)}px`,
+        color: 'rgba(234,246,255,0.62)'
       })
       sub.setOrigin(0.5)
-      card.add([bg, label, sub])
-      card.setSize(cardWidth, 70)
-      card.setInteractive({ useHandCursor: true })
+
+      const hint = this.add.text(0, 30, entry.collisions ? 'Chaos' : 'Clean', {
+        fontFamily: 'BubbleDisplay',
+        fontSize: `${Math.round(12 * uiScale)}px`,
+        color: 'rgba(234,246,255,0.5)'
+      })
+      hint.setOrigin(0.5)
+
+      card.add([label, sub, hint])
+
+      const sheen = card.getData('sheen') as Phaser.GameObjects.Image
+      sheen.setAlpha(0.08)
+
+      card.on('pointerover', () => {
+        this.tweens.add({ targets: card, scale: 1.05, duration: 150, ease: 'Sine.easeOut' })
+        this.tweens.add({ targets: sheen, alpha: 0.13, duration: 150, ease: 'Sine.easeOut' })
+      })
+      card.on('pointerout', () => {
+        this.tweens.add({ targets: card, scale: 1, duration: 180, ease: 'Sine.easeOut' })
+        this.tweens.add({ targets: sheen, alpha: 0.08, duration: 220, ease: 'Sine.easeOut' })
+        sheen.setPosition(0, sheen.y)
+      })
+      card.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+        const rx = Phaser.Math.Clamp((pointer.x - card.x) / (cardWidth * 0.5), -1, 1)
+        const ry = Phaser.Math.Clamp((pointer.y - card.y) / (cardHeight * 0.5), -1, 1)
+        sheen.setPosition(rx * 10, -cardHeight * 0.55 + ry * 8)
+        halo.setPosition(-rx * 4, -ry * 4)
+      })
       card.on('pointerup', () => {
         this.difficultyId = entry.id
         this.updateCardHighlights(cards)
       })
-      card.setData('bg', bg)
+
       card.setData('entry', entry.id)
+      card.setDepth(8)
       return card
     })
 
     this.updateCardHighlights(cards)
 
-    createButton(this, this.scale.width / 2, 360, 'Play', () => {
+    let transitioning = false
+    const buttonWidth = Math.min(Math.round(300 * uiScale), this.scale.width - 80)
+    const playButton = createButton(this, centerX, Math.round(390 * uiScale), 'Play', () => {
+      if (transitioning) return
+      transitioning = true
+      playButton.disableInteractive()
+      settingsButton.disableInteractive()
+
       const next = { ...settings, difficulty: this.difficultyId }
       saveSettings(next)
-      this.scene.start('Game', { difficulty: this.difficultyId })
-    })
 
-    createButton(this, this.scale.width / 2, 430, 'Settings', () => {
-      this.scene.start('Settings')
-    })
+      this.cameras.main.fadeOut(260, 4, 10, 18)
+      this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+        this.scene.start('Game', { difficulty: this.difficultyId })
+      })
+    }, { width: buttonWidth, height: Math.round(60 * uiScale), depth: 9 })
 
-    this.add.text(this.scale.width / 2, this.scale.height - 40, 'Type fast. Stay afloat.', {
+    const settingsButton = createButton(this, centerX, Math.round(465 * uiScale), 'Settings', () => {
+      if (transitioning) return
+      transitioning = true
+      playButton.disableInteractive()
+      settingsButton.disableInteractive()
+      this.cameras.main.fadeOut(240, 4, 10, 18)
+      this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+        this.scene.start('Settings')
+      })
+    }, { width: buttonWidth, height: Math.round(56 * uiScale), depth: 9, accent: 0xffcf66 })
+
+    this.add.text(centerX, this.scale.height - Math.round(40 * uiScale), 'Type fast. Stay afloat.', {
       fontFamily: 'BubbleDisplay',
-      fontSize: '18px',
+      fontSize: `${Math.round(18 * uiScale)}px`,
       color: 'rgba(234,246,255,0.6)'
     }).setOrigin(0.5)
+
+    const vignette = this.add
+      .image(this.scale.width / 2, this.scale.height / 2, 'vignette')
+      .setBlendMode(Phaser.BlendModes.MULTIPLY)
+      .setAlpha(0.16)
+      .setDepth(90)
+    vignette.setScale(Math.max(this.scale.width, this.scale.height) / 512)
+
+    const entrance = [this.title, panel, difficultyTitle, ...cards, playButton, settingsButton].filter(
+      Boolean
+    ) as Phaser.GameObjects.GameObject[]
+
+    entrance.forEach((obj) => {
+      const anyObj = obj as unknown as Phaser.GameObjects.Components.Transform &
+        Phaser.GameObjects.Components.Alpha & { y: number; alpha: number }
+      anyObj.alpha = 0
+      anyObj.y += 10 * uiScale
+    })
+    this.tweens.add({
+      targets: entrance,
+      alpha: 1,
+      y: '-=10',
+      duration: 520,
+      ease: 'Cubic.easeOut',
+      stagger: 35,
+      delay: 120
+    })
 
     this.scale.on('resize', () => {
       this.scene.restart()
     })
+
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.backdropFx?.destroy()
+      this.backdropFx = undefined
+    })
   }
 
   update(time: number, delta: number) {
+    this.backdropFx?.update(time, delta)
+
     const dt = delta / 1000
     const t = time / 1000
     this.bubbles.forEach((bubble, index) => {
@@ -106,6 +239,9 @@ export class MenuScene extends Phaser.Scene {
       bubble.sprite.y -= bubble.speed * dt
       bubble.sprite.x += (bubble.drift + sway) * dt
       bubble.sprite.rotation = Math.sin(t * 0.9 + index) * 0.08
+      bubble.spec.setPosition(bubble.sprite.x - bubble.sprite.scaleX * 18, bubble.sprite.y - bubble.sprite.scaleY * 22)
+      bubble.spec.setRotation(bubble.sprite.rotation)
+
       if (bubble.sprite.y < -80) {
         bubble.sprite.y = this.scale.height + 80
       }
@@ -116,37 +252,76 @@ export class MenuScene extends Phaser.Scene {
         bubble.sprite.x = -80
       }
     })
+
+    const pointer = this.input.activePointer
+    const dx = Phaser.Math.Clamp((pointer.x - this.scale.width / 2) / (this.scale.width / 2), -1, 1)
+    const dy = Phaser.Math.Clamp((pointer.y - this.scale.height / 2) / (this.scale.height / 2), -1, 1)
+
+    if (this.heroBubble && this.heroSpec) {
+      this.heroBubble.setPosition(this.scale.width / 2 + dx * 18, this.heroBaseY + dy * 12)
+      this.heroBubble.setRotation(Math.sin(t * 0.22) * 0.08)
+      this.heroSpec.setPosition(this.heroBubble.x - 28 + dx * 6, this.heroBubble.y - 34 + dy * 5)
+      this.heroSpec.setRotation(this.heroBubble.rotation)
+    }
+
+    if (this.title) {
+      this.title.setPosition(this.scale.width / 2 + dx * 10, this.titleBaseY + dy * 6)
+    }
   }
 
   private updateCardHighlights(cards: Phaser.GameObjects.Container[]) {
     cards.forEach((card) => {
-      const bg = card.getData('bg') as Phaser.GameObjects.Graphics
       const id = card.getData('entry') as DifficultyId
       const isActive = id === this.difficultyId
-      bg.clear()
-      bg.fillStyle(0xffffff, isActive ? 0.28 : 0.1)
-      bg.fillRoundedRect(-75, -35, 150, 70, 14)
-      bg.lineStyle(2, 0xffffff, isActive ? 0.35 : 0.15)
-      bg.strokeRoundedRect(-75, -35, 150, 70, 14)
-      card.setScale(isActive ? 1.05 : 1)
+
+      const border = card.getData('border') as Phaser.GameObjects.Graphics
+      const inner = card.getData('inner') as Phaser.GameObjects.Graphics
+      const halo = card.getData('halo') as Phaser.GameObjects.Image
+      const sheen = card.getData('sheen') as Phaser.GameObjects.Image
+      const width = card.width || 176
+      const height = card.height || 84
+      const radius = 22
+
+      border.clear()
+      border.lineStyle(2, 0xffffff, isActive ? 0.26 : 0.12)
+      border.strokeRoundedRect(-width / 2, -height / 2, width, height, radius)
+
+      inner.clear()
+      inner.lineStyle(1, halo.tintTopLeft, isActive ? 0.46 : 0.16)
+      inner.strokeRoundedRect(
+        -width / 2 + 4,
+        -height / 2 + 4,
+        width - 8,
+        height - 8,
+        Math.max(0, radius - 4)
+      )
+
+      halo.setAlpha(isActive ? 0.55 : 0)
+      sheen.setAlpha(isActive ? 0.14 : 0.08)
+      this.tweens.add({
+        targets: card,
+        scale: isActive ? 1.065 : 1,
+        duration: 180,
+        ease: 'Sine.easeOut'
+      })
+
+      if (isActive) {
+        this.tweens.killTweensOf(halo)
+        this.tweens.add({
+          targets: halo,
+          scaleX: { from: halo.scaleX, to: halo.scaleX * 1.07 },
+          scaleY: { from: halo.scaleY, to: halo.scaleY * 1.07 },
+          alpha: { from: 0.5, to: 0.65 },
+          duration: 820,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut'
+        })
+      } else {
+        this.tweens.killTweensOf(halo)
+        halo.setScale((width / 256) * 1.55)
+      }
     })
-  }
-
-  private addGradientBackdrop() {
-    const backdrop = this.add.graphics()
-    backdrop.fillGradientStyle(0x0c1f2d, 0x0c1f2d, 0x13304a, 0x1f4460, 1)
-    backdrop.fillRect(0, 0, this.scale.width, this.scale.height)
-    backdrop.setDepth(-5)
-
-    const bokeh = this.add.graphics()
-    bokeh.fillStyle(0x66e3ff, 0.08)
-    for (let i = 0; i < 6; i += 1) {
-      const x = Phaser.Math.Between(60, this.scale.width - 60)
-      const y = Phaser.Math.Between(60, this.scale.height - 60)
-      const radius = Phaser.Math.Between(60, 140)
-      bokeh.fillCircle(x, y, radius)
-    }
-    bokeh.setDepth(-4)
   }
 
   private createBackgroundBubbles() {
@@ -157,15 +332,44 @@ export class MenuScene extends Phaser.Scene {
         Phaser.Math.Between(0, this.scale.height),
         'bubble'
       )
-      const scale = Phaser.Math.FloatBetween(0.1, 0.22)
+      const scale = Phaser.Math.FloatBetween(0.1, 0.24)
       sprite.setScale(scale)
-      sprite.setAlpha(0.2)
+      sprite.setAlpha(0.18)
       sprite.setDepth(-1)
+      sprite.setTint(0xe8fbff)
+
+      const spec = this.add.sprite(sprite.x - 18, sprite.y - 22, 'bubbleSpec')
+      spec.setScale(scale)
+      spec.setAlpha(0.06)
+      spec.setDepth(-0.8)
+      spec.setBlendMode(Phaser.BlendModes.SCREEN)
       this.bubbles.push({
         sprite,
+        spec,
         speed: Phaser.Math.FloatBetween(12, 30),
         drift: Phaser.Math.FloatBetween(-8, 8)
       })
     }
+  }
+
+  private createHeroBubble(uiScale: number) {
+    this.heroBubble?.destroy()
+    this.heroSpec?.destroy()
+    const scale = Phaser.Math.Clamp(1.9 * uiScale, 1.35, 2.4)
+    const ox = 28 * uiScale
+    const oy = 34 * uiScale
+    this.heroBubble = this.add
+      .sprite(this.scale.width / 2, this.heroBaseY, 'bubble')
+      .setScale(scale)
+      .setAlpha(0.12)
+      .setDepth(0)
+      .setTint(0xffffff)
+
+    this.heroSpec = this.add
+      .sprite(this.heroBubble.x - ox, this.heroBubble.y - oy, 'bubbleSpec')
+      .setScale(scale)
+      .setAlpha(0.12)
+      .setDepth(0.2)
+      .setBlendMode(Phaser.BlendModes.SCREEN)
   }
 }
