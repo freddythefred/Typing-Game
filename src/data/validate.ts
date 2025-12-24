@@ -22,4 +22,9 @@ export function validateWordBank(bank: WordBank, label: string) {
       console.warn(`[WordBank] ${label} ${name} has out-of-range entries:`, bad)
     }
   })
+
+  const badPhrases = bank.phrases.filter((phrase) => phrase.trim().split(/\s+/).filter(Boolean).length > 4)
+  if (badPhrases.length > 0) {
+    console.warn(`[WordBank] ${label} phrases has >4 word entries:`, badPhrases.slice(0, 20))
+  }
 }

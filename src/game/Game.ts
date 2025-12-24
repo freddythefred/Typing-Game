@@ -25,7 +25,8 @@ export function createGame() {
     },
     render: {
       antialias: true,
-      pixelArt: false
+      pixelArt: false,
+      powerPreference: 'high-performance'
     },
     scene: [BootScene, PreloadScene, MenuScene, SettingsScene, GameScene, ResultScene]
   })

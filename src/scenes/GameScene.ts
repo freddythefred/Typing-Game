@@ -50,6 +50,9 @@ export class GameScene extends Phaser.Scene {
   private waterTopY = 0
   private waterHeight = 0
   private waterWavePhases: number[] = []
+  private reduceMotion = false
+  private waterRedrawAccumulatorMs = 0
+  private readonly waterRedrawIntervalMs = 34
   private spawnTimer?: Phaser.Time.TimerEvent
   private hud!: HudRefs
   private settings = loadSettings()
@@ -60,6 +63,14 @@ export class GameScene extends Phaser.Scene {
   private lastScore = 0
   private lastCombo = 0
   private lastLives = 5
+  private lastCorrectKeys = -1
+  private lastTotalKeys = -1
+  private lastComboBarCombo = -1
+  private lastLivesVisual = -1
+  private lastBufferText = ''
+  private hudDirty = true
+  private lastHudUpdateTime = 0
+  private readonly hudUpdateMinIntervalMs = 120
   private isEnding = false
   private popped = 0
   private missed = 0
@@ -91,6 +102,15 @@ export class GameScene extends Phaser.Scene {
     this.settings = loadSettings()
     this.difficultyId = data.difficulty ?? this.settings.difficulty ?? 'level1'
     const config = DIFFICULTY[this.difficultyId]
+    this.reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false
+    this.waterRedrawAccumulatorMs = 0
+    this.lastBufferText = ''
+    this.hudDirty = true
+    this.lastHudUpdateTime = 0
+    this.lastCorrectKeys = -1
+    this.lastTotalKeys = -1
+    this.lastComboBarCombo = -1
+    this.lastLivesVisual = -1
 
     if (import.meta.env.DEV) {
       validateWordBank(getBank(this.settings.language), this.settings.language)
@@ -125,13 +145,14 @@ export class GameScene extends Phaser.Scene {
       onCorrectKey: () => {
         this.audio.playTick()
         this.flashBuffer(0x66e3ff, 0.15)
+        this.markHudDirty()
       },
       onErrorKey: () => {
         this.combo = 0
         this.audio.playError()
         this.effects.shake(0.006, 120)
         this.flashBuffer(0xff5a7a, 0.22)
-        this.updateHud()
+        this.markHudDirty(true)
       },
       onComplete: (bubble) => {
         this.popBubble(bubble)
@@ -140,6 +161,7 @@ export class GameScene extends Phaser.Scene {
     this.typingSystem.setAccentInsensitive(this.settings.accentInsensitive)
 
     this.createHud()
+    this.markHudDirty(true)
     this.createBackToMenuButton()
     this.startTime = this.time.now
 
@@ -190,9 +212,8 @@ export class GameScene extends Phaser.Scene {
     })
 
 
-    const caret = Math.floor(time / 450) % 2 === 0 ? '▍' : ''
-    this.hud.buffer.setText(`${this.typingSystem.getBuffer()}${caret}`)
-    this.updateHud()
+    this.updateBufferText(time)
+    this.updateHudIfNeeded(time)
   }
 
   private spawnBubble() {
@@ -216,7 +237,7 @@ export class GameScene extends Phaser.Scene {
     this.audio.playPop()
 
     this.bubbleManager.release(bubble)
-    this.updateHud()
+    this.markHudDirty(true)
   }
 
   private handleCollision(event: Phaser.Physics.Matter.Events.CollisionStartEvent) {
@@ -246,8 +267,9 @@ export class GameScene extends Phaser.Scene {
     this.effects.shake(0.004, 140)
     this.bubbleManager.release(bubble)
     this.typingSystem.reset()
+    this.lastBufferText = ''
     this.hud.buffer.setText('')
-    this.updateHud()
+    this.markHudDirty(true)
 
     if (this.lives <= 0) {
       this.requestEndGame()
@@ -393,7 +415,7 @@ export class GameScene extends Phaser.Scene {
     const foam = this.waterFoam
     if (!water || !causticsA || !causticsB || !surface || !mask || !foam) return
 
-    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false
+    const reduceMotion = this.reduceMotion
 
     if (!reduceMotion) {
       water.tilePositionX += delta * 0.022
@@ -411,6 +433,15 @@ export class GameScene extends Phaser.Scene {
     }
 
     const t = time / 1000
+
+    surface.setAlpha(reduceMotion ? 0.05 : 0.06 + Math.sin(t * 0.9) * 0.01)
+    surface.setPosition(0, this.waterTopY - 110 + Math.sin(t * 0.55) * 4)
+
+    const forceRedraw = delta === 0
+    if (!forceRedraw) this.waterRedrawAccumulatorMs += delta
+    if (!forceRedraw && this.waterRedrawAccumulatorMs < this.waterRedrawIntervalMs) return
+    this.waterRedrawAccumulatorMs = 0
+
     const width = this.scale.width
     const bottom = this.waterTopY + this.waterHeight
     const baseY = this.waterTopY + (reduceMotion ? 0 : Math.sin(t * 0.55) * 1.2)
@@ -488,8 +519,27 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    surface.setAlpha(reduceMotion ? 0.05 : 0.06 + Math.sin(t * 0.9) * 0.01)
-    surface.setPosition(0, this.waterTopY - 110 + Math.sin(t * 0.55) * 4)
+  }
+
+  private updateBufferText(time: number) {
+    const buffer = this.typingSystem.getBuffer()
+    const caretOn = Math.floor(time / 450) % 2 === 0
+    const next = caretOn ? `${buffer}|` : buffer
+
+    if (next === this.lastBufferText) return
+    this.lastBufferText = next
+    this.hud.buffer.setText(next)
+  }
+
+  private markHudDirty(force = false) {
+    this.hudDirty = true
+    if (force) this.updateHud()
+  }
+
+  private updateHudIfNeeded(time: number) {
+    if (!this.hudDirty) return
+    if (time - this.lastHudUpdateTime < this.hudUpdateMinIntervalMs) return
+    this.updateHud()
   }
 
   private handleResize() {
@@ -696,6 +746,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateHud() {
+    this.lastHudUpdateTime = this.time.now
+    this.hudDirty = false
+
     const stats = this.typingSystem.getStats()
     const accuracy = stats.totalKeys > 0 ? (stats.correctKeys / stats.totalKeys) * 100 : 100
 
@@ -732,33 +785,51 @@ export class GameScene extends Phaser.Scene {
       this.lastLives = this.lives
     }
 
-    this.hud.score.setText(`${this.score}`)
-    this.hud.combo.setText(`${this.combo}`)
-    this.hud.accuracy.setText(`Accuracy ${accuracy.toFixed(0)}%`)
-    this.hud.lives.setText(`Lives ${this.lives}/5`)
+    const scoreText = `${this.score}`
+    if (this.hud.score.text !== scoreText) this.hud.score.setText(scoreText)
 
-    this.hud.lifeBubbles.forEach((icon, index) => {
-      const active = index < this.lives
-      icon.setAlpha(active ? 0.55 : 0.14)
-      const activeScale = (icon.getData('activeScale') as number) ?? icon.scaleX
-      const inactiveScale = (icon.getData('inactiveScale') as number) ?? icon.scaleX * 0.79
-      icon.setScale(active ? activeScale : inactiveScale)
-    })
+    const comboText = `${this.combo}`
+    if (this.hud.combo.text !== comboText) this.hud.combo.setText(comboText)
 
-    const barX = this.hud.comboBar.getData('x') as number
-    const barY = this.hud.comboBar.getData('y') as number
-    const barW = this.hud.comboBar.getData('w') as number
-    const barH = this.hud.comboBar.getData('h') as number
-    const barR = this.hud.comboBar.getData('r') as number
-    const ratio = Phaser.Math.Clamp(this.combo / 16, 0, 1)
+    if (stats.totalKeys !== this.lastTotalKeys || stats.correctKeys !== this.lastCorrectKeys) {
+      const accuracyText = `Accuracy ${accuracy.toFixed(0)}%`
+      if (this.hud.accuracy.text !== accuracyText) this.hud.accuracy.setText(accuracyText)
+      this.lastTotalKeys = stats.totalKeys
+      this.lastCorrectKeys = stats.correctKeys
+    }
 
-    this.hud.comboBar.clear()
-    this.hud.comboBar.fillStyle(0xffffff, 0.08)
-    this.hud.comboBar.fillRoundedRect(barX, barY, barW, barH, barR)
-    this.hud.comboBar.fillStyle(0x66e3ff, 0.85)
-    this.hud.comboBar.fillRoundedRect(barX, barY, barW * ratio, barH, barR)
-    this.hud.comboBar.lineStyle(1, 0xffffff, 0.14)
-    this.hud.comboBar.strokeRoundedRect(barX, barY, barW, barH, barR)
+    const livesText = `Lives ${this.lives}/5`
+    if (this.hud.lives.text !== livesText) this.hud.lives.setText(livesText)
+
+    if (this.lives !== this.lastLivesVisual) {
+      this.hud.lifeBubbles.forEach((icon, index) => {
+        const active = index < this.lives
+        icon.setAlpha(active ? 0.55 : 0.14)
+        const activeScale = (icon.getData('activeScale') as number) ?? icon.scaleX
+        const inactiveScale = (icon.getData('inactiveScale') as number) ?? icon.scaleX * 0.79
+        icon.setScale(active ? activeScale : inactiveScale)
+      })
+      this.lastLivesVisual = this.lives
+    }
+
+    if (this.combo !== this.lastComboBarCombo) {
+      const barX = this.hud.comboBar.getData('x') as number
+      const barY = this.hud.comboBar.getData('y') as number
+      const barW = this.hud.comboBar.getData('w') as number
+      const barH = this.hud.comboBar.getData('h') as number
+      const barR = this.hud.comboBar.getData('r') as number
+      const ratio = Phaser.Math.Clamp(this.combo / 16, 0, 1)
+
+      this.hud.comboBar.clear()
+      this.hud.comboBar.fillStyle(0xffffff, 0.08)
+      this.hud.comboBar.fillRoundedRect(barX, barY, barW, barH, barR)
+      this.hud.comboBar.fillStyle(0x66e3ff, 0.85)
+      this.hud.comboBar.fillRoundedRect(barX, barY, barW * ratio, barH, barR)
+      this.hud.comboBar.lineStyle(1, 0xffffff, 0.14)
+      this.hud.comboBar.strokeRoundedRect(barX, barY, barW, barH, barR)
+
+      this.lastComboBarCombo = this.combo
+    }
   }
 
   private punchText(target: Phaser.GameObjects.Text, scale = 1.08) {
