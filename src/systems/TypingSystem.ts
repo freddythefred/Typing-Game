@@ -44,6 +44,17 @@ export class TypingSystem {
     return this.stats
   }
 
+  onBubbleRemoved(bubble: BubbleItem) {
+    if (this.activeTarget && bubble.id === this.activeTarget.id) {
+      this.buffer = ''
+      this.activeTarget = null
+      this.bubbleManager.setHighlight(null)
+      this.bubbleManager.getActiveBubbles().forEach((item) => this.bubbleManager.setProgress(item, 0))
+      return true
+    }
+    return false
+  }
+
   reset() {
     this.buffer = ''
     this.activeTarget = null

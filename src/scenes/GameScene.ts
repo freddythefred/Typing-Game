@@ -266,9 +266,12 @@ export class GameScene extends Phaser.Scene {
     this.audio.playSplash()
     this.effects.shake(0.004, 140)
     this.bubbleManager.release(bubble)
-    this.typingSystem.reset()
-    this.lastBufferText = ''
-    this.hud.buffer.setText('')
+
+    const cleared = this.typingSystem.onBubbleRemoved(bubble)
+    if (cleared) {
+      this.lastBufferText = ''
+      this.hud.buffer.setText('')
+    }
     this.markHudDirty(true)
 
     if (this.lives <= 0) {
