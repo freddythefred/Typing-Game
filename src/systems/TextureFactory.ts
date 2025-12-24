@@ -20,61 +20,27 @@ export function createBubbleTexture(scene: Phaser.Scene) {
     center,
     radius
   )
-  base.addColorStop(0, 'rgba(230, 250, 255, 0.42)')
-  base.addColorStop(0.35, 'rgba(170, 225, 255, 0.26)')
-  base.addColorStop(0.7, 'rgba(100, 175, 235, 0.17)')
-  base.addColorStop(1, 'rgba(50, 105, 160, 0.11)')
+  base.addColorStop(0, 'rgba(235, 252, 255, 0.55)')
+  base.addColorStop(0.35, 'rgba(180, 232, 255, 0.36)')
+  base.addColorStop(0.7, 'rgba(105, 180, 240, 0.26)')
+  base.addColorStop(1, 'rgba(55, 120, 175, 0.18)')
 
   ctx.fillStyle = base
   ctx.beginPath()
   ctx.arc(center, center, radius, 0, Math.PI * 2)
   ctx.fill()
 
-  ctx.strokeStyle = 'rgba(230, 252, 255, 0.28)'
-  ctx.lineWidth = 6
+  ctx.strokeStyle = 'rgba(230, 252, 255, 0.22)'
+  ctx.lineWidth = 5
   ctx.beginPath()
   ctx.arc(center, center, radius * 0.965, 0, Math.PI * 2)
   ctx.stroke()
 
   ctx.strokeStyle = 'rgba(40, 85, 125, 0.12)'
-  ctx.lineWidth = 4
+  ctx.lineWidth = 3
   ctx.beginPath()
   ctx.arc(center, center, radius * 0.9, 0, Math.PI * 2)
   ctx.stroke()
-
-  ctx.save()
-  ctx.translate(center - radius * 0.18, center - radius * 0.22)
-  ctx.rotate(-0.6)
-  const spec = ctx.createRadialGradient(0, 0, radius * 0.06, 0, 0, radius * 0.62)
-  spec.addColorStop(0, 'rgba(255, 255, 255, 0.78)')
-  spec.addColorStop(0.28, 'rgba(255, 255, 255, 0.24)')
-  spec.addColorStop(1, 'rgba(255, 255, 255, 0)')
-  ctx.fillStyle = spec
-  ctx.beginPath()
-  ctx.ellipse(0, 0, radius * 0.58, radius * 0.34, 0, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.restore()
-
-  ctx.save()
-  ctx.globalCompositeOperation = 'screen'
-  const rimColors = [
-    'rgba(102, 227, 255, 0.14)',
-    'rgba(255, 207, 102, 0.1)',
-    'rgba(190, 150, 255, 0.08)'
-  ]
-  const arcs: Array<[number, number]> = [
-    [-Math.PI * 0.75, -Math.PI * 0.1],
-    [Math.PI * 0.05, Math.PI * 0.35],
-    [Math.PI * 0.45, Math.PI * 0.75]
-  ]
-  rimColors.forEach((color, index) => {
-    ctx.strokeStyle = color
-    ctx.lineWidth = 3
-    ctx.beginPath()
-    ctx.arc(center, center, radius * (0.94 - index * 0.01), arcs[index][0], arcs[index][1])
-    ctx.stroke()
-  })
-  ctx.restore()
 
   canvas.refresh()
 }

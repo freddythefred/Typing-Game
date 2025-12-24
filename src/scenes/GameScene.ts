@@ -30,8 +30,15 @@ export class GameScene extends Phaser.Scene {
   private audio!: AudioSystem
   private difficultyId: DifficultyId = 'level1'
   private backdropFx?: UnderwaterBackground
-  private water!: Phaser.GameObjects.TileSprite
-  private waterShine?: Phaser.GameObjects.TileSprite
+  private water?: Phaser.GameObjects.TileSprite
+  private waterCausticsA?: Phaser.GameObjects.TileSprite
+  private waterCausticsB?: Phaser.GameObjects.TileSprite
+  private waterSurface?: Phaser.GameObjects.TileSprite
+  private waterFoam?: Phaser.GameObjects.Graphics
+  private waterMask?: Phaser.GameObjects.Graphics
+  private waterTopY = 0
+  private waterHeight = 0
+  private waterWavePhases: number[] = []
   private spawnTimer?: Phaser.Time.TimerEvent
   private hud!: HudRefs
   private settings = loadSettings()
@@ -145,17 +152,14 @@ export class GameScene extends Phaser.Scene {
     this.backdropFx?.update(time, delta)
     this.bubbleManager.update(delta)
 
+    this.updateWater(time, delta)
+
     this.bubbleManager.getActiveBubbles().forEach((bubble) => {
       const wind = Math.sin((time / 1000) * 0.6 + bubble.id) * config.wind
       this.windForce.set(wind, 0)
       bubble.sprite.applyForce(this.windForce)
     })
 
-    this.water.tilePositionX += delta * 0.03
-    if (this.waterShine) {
-      this.waterShine.tilePositionX -= delta * 0.045
-      this.waterShine.tilePositionY += delta * 0.03
-    }
 
     const caret = Math.floor(time / 450) % 2 === 0 ? '▍' : ''
     this.hud.buffer.setText(`${this.typingSystem.getBuffer()}${caret}`)
@@ -208,7 +212,7 @@ export class GameScene extends Phaser.Scene {
     this.missed += 1
     this.score = Math.max(0, this.score - Math.round(config.points * 0.4))
 
-    this.effects.splash(bubble.sprite.x, this.water.y)
+    this.effects.splash(bubble.sprite.x, this.waterTopY)
     this.audio.playSplash()
     this.effects.shake(0.004, 140)
     this.bubbleManager.release(bubble)
@@ -247,26 +251,79 @@ export class GameScene extends Phaser.Scene {
 
   private createWaterline() {
     const height = this.scale.height
-    const waterHeight = Math.max(120, height * 0.18)
-    this.water = this.add
-      .tileSprite(0, height - waterHeight, this.scale.width, waterHeight, 'water')
+    const width = this.scale.width
+
+    this.waterHeight = Math.max(150, height * 0.2)
+    this.waterTopY = height - this.waterHeight
+    const wavePad = Math.min(90, Math.max(60, Math.round(this.waterHeight * 0.4)))
+    const visualTopY = this.waterTopY - wavePad
+    const visualHeight = this.waterHeight + wavePad
+
+    this.water?.destroy()
+    this.waterCausticsA?.destroy()
+    this.waterCausticsB?.destroy()
+    this.waterSurface?.destroy()
+    this.waterFoam?.destroy()
+    this.waterMask?.destroy()
+    this.waterWavePhases = Array.from(
+      { length: Phaser.Math.Clamp(Math.round(width / 38), 24, 56) },
+      () => Math.random() * Math.PI * 2
+    )
+
+    const water = this.add
+      .tileSprite(0, visualTopY, width, visualHeight, 'water')
       .setOrigin(0, 0)
       .setDepth(1)
+    this.water = water
 
-    this.waterShine?.destroy()
-    this.waterShine = this.add
-      .tileSprite(0, height - waterHeight, this.scale.width, waterHeight, 'noise')
+    const causticsA = this.add
+      .tileSprite(0, visualTopY, width, visualHeight, 'noise')
       .setOrigin(0, 0)
       .setDepth(2)
-      .setAlpha(0.085)
-      .setScale(1.5)
+      .setAlpha(0.06)
+      .setScale(2.1)
       .setTint(0x66e3ff)
       .setBlendMode(Phaser.BlendModes.ADD)
+    this.waterCausticsA = causticsA
+
+    const causticsB = this.add
+      .tileSprite(0, visualTopY, width, visualHeight, 'noise')
+      .setOrigin(0, 0)
+      .setDepth(2)
+      .setAlpha(0.045)
+      .setScale(3)
+      .setTint(0xffffff)
+      .setBlendMode(Phaser.BlendModes.SCREEN)
+    this.waterCausticsB = causticsB
+
+    const surface = this.add
+      .tileSprite(0, this.waterTopY - 110, width, 240, 'sheen')
+      .setOrigin(0, 0)
+      .setDepth(3)
+      .setAlpha(0.07)
+      .setTint(0xbff8ff)
+      .setBlendMode(Phaser.BlendModes.SCREEN)
+    surface.setScale(2.4)
+    surface.setRotation(-0.12)
+    this.waterSurface = surface
+
+    const maskGraphics = this.add.graphics()
+    maskGraphics.setVisible(false)
+    const mask = maskGraphics.createGeometryMask()
+    this.waterMask = maskGraphics
+
+    water.setMask(mask)
+    causticsA.setMask(mask)
+    causticsB.setMask(mask)
+    surface.setMask(mask)
+
+    const foam = this.add.graphics().setDepth(4)
+    this.waterFoam = foam
     this.matter.add.rectangle(
-      this.scale.width / 2,
-      height - waterHeight / 2,
-      this.scale.width,
-      waterHeight,
+      width / 2,
+      this.waterTopY + this.waterHeight / 2,
+      width,
+      this.waterHeight,
       {
         isSensor: true,
         isStatic: true,
@@ -274,6 +331,116 @@ export class GameScene extends Phaser.Scene {
         collisionFilter: { category: 0x0001 }
       }
     )
+
+    this.updateWater(this.time.now, 0)
+  }
+
+  private updateWater(time: number, delta: number) {
+    const water = this.water
+    const causticsA = this.waterCausticsA
+    const causticsB = this.waterCausticsB
+    const surface = this.waterSurface
+    const mask = this.waterMask
+    const foam = this.waterFoam
+    if (!water || !causticsA || !causticsB || !surface || !mask || !foam) return
+
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false
+
+    if (!reduceMotion) {
+      water.tilePositionX += delta * 0.022
+      water.tilePositionY += delta * 0.004
+
+      causticsA.tilePositionX -= delta * 0.04
+      causticsA.tilePositionY += delta * 0.026
+
+      causticsB.tilePositionX += delta * 0.06
+      causticsB.tilePositionY -= delta * 0.032
+
+      surface.tilePositionX += delta * 0.075
+      surface.tilePositionY += delta * 0.02
+      surface.rotation = -0.12 + Math.sin(time / 1000 * 0.18) * 0.012
+    }
+
+    const t = time / 1000
+    const width = this.scale.width
+    const bottom = this.waterTopY + this.waterHeight
+    const baseY = this.waterTopY + (reduceMotion ? 0 : Math.sin(t * 0.55) * 1.2)
+    const amp = reduceMotion ? 0 : Math.min(18, Math.max(6, this.waterHeight * 0.12))
+    const count = this.waterWavePhases.length
+
+    const points: Array<{ x: number; y: number }> = []
+    for (let i = 0; i < count; i += 1) {
+      const p = count > 1 ? i / (count - 1) : 0
+      const x = p * width
+      const phase = this.waterWavePhases[i] ?? 0
+
+      const y =
+        baseY +
+        Math.sin(p * Math.PI * 2 * 1.6 + t * 1.25) * amp +
+        Math.sin(p * Math.PI * 2 * 3.4 - t * 0.9 + phase) * amp * 0.34 +
+        Math.sin(p * Math.PI * 2 * 7.8 + t * 0.35 + phase * 0.5) * amp * 0.12
+
+      points.push({ x, y })
+    }
+
+    const first = points[0] ?? { x: 0, y: baseY }
+
+    mask.clear()
+    mask.fillStyle(0xffffff, 1)
+    mask.beginPath()
+    mask.moveTo(0, bottom)
+    mask.lineTo(first.x, first.y)
+    for (let i = 1; i < points.length; i += 1) {
+      mask.lineTo(points[i].x, points[i].y)
+    }
+    mask.lineTo(width, bottom)
+    mask.closePath()
+    mask.fillPath()
+
+    foam.clear()
+
+    const bandHeight = Math.min(34, Math.max(16, this.waterHeight * 0.16))
+    foam.fillStyle(0xbff8ff, reduceMotion ? 0.03 : 0.05)
+    foam.beginPath()
+    foam.moveTo(first.x, first.y)
+    for (let i = 1; i < points.length; i += 1) {
+      foam.lineTo(points[i].x, points[i].y)
+    }
+    for (let i = points.length - 1; i >= 0; i -= 1) {
+      foam.lineTo(points[i].x, points[i].y + bandHeight)
+    }
+    foam.closePath()
+    foam.fillPath()
+
+    foam.lineStyle(6, 0xffffff, reduceMotion ? 0.08 : 0.14)
+    foam.beginPath()
+    foam.moveTo(first.x, first.y)
+    for (let i = 1; i < points.length; i += 1) {
+      foam.lineTo(points[i].x, points[i].y)
+    }
+    foam.strokePath()
+
+    foam.lineStyle(2, 0xbff8ff, reduceMotion ? 0.1 : 0.18)
+    foam.beginPath()
+    foam.moveTo(first.x, first.y - 1)
+    for (let i = 1; i < points.length; i += 1) {
+      foam.lineTo(points[i].x, points[i].y - 1)
+    }
+    foam.strokePath()
+
+    if (!reduceMotion) {
+      foam.fillStyle(0xffffff, 0.1)
+      for (let i = 2; i < points.length - 2; i += 4) {
+        const phase = this.waterWavePhases[i] ?? 0
+        const sparkle = (Math.sin(t * 2.2 + phase) + 1) / 2
+        const r = 1 + sparkle * 1.6
+        const y = points[i].y + 1 + Math.sin(t * 1.4 + phase) * 1.4
+        foam.fillCircle(points[i].x, y, r)
+      }
+    }
+
+    surface.setAlpha(reduceMotion ? 0.05 : 0.06 + Math.sin(t * 0.9) * 0.01)
+    surface.setPosition(0, this.waterTopY - 110 + Math.sin(t * 0.55) * 4)
   }
 
   private handleResize() {
@@ -292,8 +459,19 @@ export class GameScene extends Phaser.Scene {
 
     this.backdropFx?.destroy()
     this.backdropFx = undefined
-    this.waterShine?.destroy()
-    this.waterShine = undefined
+
+    this.water?.destroy()
+    this.water = undefined
+    this.waterCausticsA?.destroy()
+    this.waterCausticsA = undefined
+    this.waterCausticsB?.destroy()
+    this.waterCausticsB = undefined
+    this.waterSurface?.destroy()
+    this.waterSurface = undefined
+    this.waterFoam?.destroy()
+    this.waterFoam = undefined
+    this.waterMask?.destroy()
+    this.waterMask = undefined
   }
 
   private createHud() {

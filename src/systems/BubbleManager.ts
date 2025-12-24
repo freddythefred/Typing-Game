@@ -4,8 +4,7 @@ import type { DifficultyConfig } from '../config/difficulty'
 export type BubbleItem = {
   id: number
   sprite: Phaser.Physics.Matter.Sprite
-  halo: Phaser.GameObjects.Sprite
-  spec: Phaser.GameObjects.Sprite
+  ring: Phaser.GameObjects.Arc
   labelMatch: Phaser.GameObjects.Text
   labelRest: Phaser.GameObjects.Text
   labelContainer: Phaser.GameObjects.Container
@@ -56,18 +55,15 @@ export class BubbleManager {
     bubble.sprite.setCollisionCategory(0x0002)
     bubble.sprite.setCollidesWith(config.collisions ? 0x0002 | 0x0001 : 0x0001)
 
-    bubble.halo.setScale((radius * 2) / 256)
-    bubble.halo.setAlpha(0)
-    bubble.halo.setVisible(true)
-
-    bubble.spec.setScale((radius * 2) / 256)
-    bubble.spec.setAlpha(0.22)
-    bubble.spec.setVisible(true)
+    bubble.ring.setVisible(true)
+    bubble.ring.setPosition(x, y)
+    bubble.ring.setScale(bubble.sprite.scaleX)
+    bubble.ring.setStrokeStyle(4, 0xffffff, 0)
 
     bubble.labelMatch.setText('')
     bubble.labelRest.setText(word)
     bubble.labelContainer.setVisible(true)
-    bubble.labelContainer.setAlpha(0.9)
+    bubble.labelContainer.setAlpha(0.95)
     this.setProgress(bubble, 0)
 
     this.active.push(bubble)
@@ -83,20 +79,8 @@ export class BubbleManager {
       const targetBoost = bubble.isTarget ? 0.06 : 0
       bubble.sprite.setScale((bubble.radius * 2) / 256 + wobble * 0.05 + targetBoost)
 
-      bubble.halo.setPosition(bubble.sprite.x, bubble.sprite.y)
-      bubble.halo.setRotation(-wobble * 0.8)
-      if (bubble.isTarget) {
-        const pulse = 1 + Math.sin(bubble.wobblePhase * 2.2) * 0.06
-        bubble.halo.setScale(((bubble.radius * 2) / 256) * 1.15 * pulse)
-      }
-
-      bubble.spec.setPosition(
-        bubble.sprite.x - bubble.radius * 0.18,
-        bubble.sprite.y - bubble.radius * 0.22
-      )
-      bubble.spec.setRotation(wobble)
-      bubble.spec.setAlpha(bubble.isTarget ? 0.34 : 0.22)
-      bubble.spec.setScale(((bubble.radius * 2) / 256) * (bubble.isTarget ? 1.02 : 1))
+      bubble.ring.setPosition(bubble.sprite.x, bubble.sprite.y)
+      bubble.ring.setScale(bubble.sprite.scaleX * (bubble.isTarget ? 1.05 : 1))
 
       bubble.labelContainer.setPosition(bubble.sprite.x, bubble.sprite.y)
       bubble.labelContainer.setScale(bubble.isTarget ? 1.04 : 1)
@@ -116,7 +100,7 @@ export class BubbleManager {
     this.active.forEach((item) => {
       const isTarget = bubble && item.id === bubble.id
       item.isTarget = Boolean(isTarget)
-      item.halo.setAlpha(isTarget ? 0.8 : 0)
+      item.ring.setStrokeStyle(4, 0xffffff, isTarget ? 0.22 : 0)
     })
   }
 
@@ -128,8 +112,7 @@ export class BubbleManager {
     bubble.sprite.setActive(false)
     bubble.sprite.setVisible(false)
     bubble.sprite.setPosition(-9999, -9999)
-    bubble.halo.setVisible(false)
-    bubble.spec.setVisible(false)
+    bubble.ring.setVisible(false)
     bubble.labelContainer.setVisible(false)
     bubble.progress = 0
     bubble.isTarget = false
@@ -153,25 +136,25 @@ export class BubbleManager {
     sprite.setCollisionCategory(0x0002)
     sprite.setCollidesWith(0x0001)
 
-    const halo = this.scene.add.sprite(0, 0, 'halo').setDepth(2)
-    halo.setBlendMode(Phaser.BlendModes.ADD)
-
-    const spec = this.scene.add.sprite(0, 0, 'bubbleSpec').setDepth(3.2)
-    spec.setBlendMode(Phaser.BlendModes.SCREEN)
+    const ring = this.scene.add.circle(0, 0, 128, 0x000000, 0).setDepth(3.1)
+    ring.setStrokeStyle(4, 0xffffff, 0)
+    ring.setVisible(false)
     const labelMatch = this.scene.add.text(0, 0, '', {
       fontFamily: 'BubbleDisplay',
-      fontSize: '20px',
-      color: '#0b0b0b'
+      fontSize: '22px',
+      color: '#66e3ff'
     })
     const labelRest = this.scene.add.text(0, 0, '', {
       fontFamily: 'BubbleDisplay',
-      fontSize: '20px',
-      color: '#0b0b0b'
+      fontSize: '22px',
+      color: '#eaf6ff'
     })
     labelMatch.setOrigin(0, 0.5)
     labelRest.setOrigin(0, 0.5)
-    labelMatch.setStroke('rgba(255,255,255,0.25)', 2)
-    labelRest.setStroke('rgba(255,255,255,0.25)', 2)
+    labelMatch.setStroke('rgba(0,0,0,0.55)', 4)
+    labelRest.setStroke('rgba(0,0,0,0.55)', 4)
+    labelMatch.setShadow(0, 4, 'rgba(0,0,0,0.55)', 10, false, true)
+    labelRest.setShadow(0, 4, 'rgba(0,0,0,0.55)', 10, false, true)
 
     const labelContainer = this.scene.add
       .container(0, 0, [labelMatch, labelRest])
@@ -180,8 +163,7 @@ export class BubbleManager {
     const bubble: BubbleItem = {
       id: this.idCounter++,
       sprite,
-      halo,
-      spec,
+      ring,
       labelMatch,
       labelRest,
       labelContainer,
