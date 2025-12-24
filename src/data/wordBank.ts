@@ -1,6 +1,6 @@
 import wordsEn from './words.en.json'
 import wordsFr from './words.fr.json'
-import type { DifficultyId } from '../config/difficulty'
+import { DIFFICULTY, type DifficultyId } from '../config/difficulty'
 
 export type LanguageId = 'en' | 'fr'
 
@@ -22,7 +22,7 @@ export function getBank(language: LanguageId): WordBank {
 
 export function pickWord(language: LanguageId, difficulty: DifficultyId): string {
   const bank = getBank(language)
-  if (difficulty === 'extra') {
+  if (DIFFICULTY[difficulty].phraseMode) {
     return bank.phrases[Math.floor(Math.random() * bank.phrases.length)]
   }
 

@@ -58,8 +58,10 @@ export class MenuScene extends Phaser.Scene {
     this.title.setDepth(10)
 
     const panelWidth = Math.min(Math.round(860 * uiScale), this.scale.width - 60)
-    const panelHeight = Math.round(190 * uiScale)
-    const panel = createGlassPanel(this, centerX, Math.round(250 * uiScale), panelWidth, panelHeight, {
+    const extraBottom = Math.round(38 * uiScale)
+    const panelHeight = Math.round(310 * uiScale) + extraBottom
+    const panelY = Math.round(294 * uiScale) + Math.round(extraBottom / 2)
+    const panel = createGlassPanel(this, centerX, panelY, panelWidth, panelHeight, {
       depth: 6,
       float: !window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches,
       radius: Math.round(28 * uiScale),
@@ -75,20 +77,57 @@ export class MenuScene extends Phaser.Scene {
     difficultyTitle.setOrigin(0.5)
     difficultyTitle.setDepth(10)
 
-    const entries = Object.values(DIFFICULTY)
+    const wordEntries = [DIFFICULTY.level1, DIFFICULTY.level2, DIFFICULTY.level3]
+    const phraseEntries = [DIFFICULTY.extra, DIFFICULTY.phrases2, DIFFICULTY.phrases3]
     const spacing = Math.round(18 * uiScale)
     const cardHeight = Math.round(84 * uiScale)
 
     const cardsInnerPadding = Math.round(50 * uiScale)
     const maxCardsWidth = Math.max(0, Math.min(panelWidth - cardsInnerPadding, Math.round(920 * uiScale)))
-    const cardWidth = Math.floor((maxCardsWidth - spacing * (entries.length - 1)) / entries.length)
-    const totalWidth = cardWidth * entries.length + spacing * (entries.length - 1)
+    const cardsPerRow = 3
+    const cardWidth = Math.floor((maxCardsWidth - spacing * (cardsPerRow - 1)) / cardsPerRow)
+    const totalWidth = cardWidth * cardsPerRow + spacing * (cardsPerRow - 1)
     const startX = centerX - totalWidth / 2 + cardWidth / 2
+    const leftEdgeX = startX - cardWidth / 2
+    const rightEdgeX = leftEdgeX + totalWidth
 
-    const cards = entries.map((entry, index) => {
-      const x = startX + index * (cardWidth + spacing)
-      const y = Math.round(262 * uiScale)
+    const sectionLabelStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+      fontFamily: 'BubbleDisplay',
+      fontSize: `${Math.round(18 * uiScale)}px`,
+      color: 'rgba(234,246,255,0.75)'
+    }
 
+    const wordsRowY = Math.round(266 * uiScale)
+    const phrasesSectionOffsetY = Math.round(38 * uiScale)
+    const phrasesRowY = Math.round(366 * uiScale) + phrasesSectionOffsetY
+    const labelOffsetY = Math.round(cardHeight / 2 + 18 * uiScale)
+    const wordsLabelY = Math.round(wordsRowY - labelOffsetY)
+    const phrasesLabelY = Math.round(phrasesRowY - labelOffsetY)
+
+    const wordsLabel = this.add.text(leftEdgeX, wordsLabelY, 'Words', {
+      ...sectionLabelStyle,
+      color: 'rgba(102,227,255,0.82)'
+    })
+    wordsLabel.setOrigin(0, 0.5)
+    wordsLabel.setDepth(10)
+
+    const phrasesLabel = this.add.text(leftEdgeX, phrasesLabelY, 'Phrases', {
+      ...sectionLabelStyle,
+      color: 'rgba(255,207,102,0.82)'
+    })
+    phrasesLabel.setOrigin(0, 0.5)
+    phrasesLabel.setDepth(10)
+
+    const divider = this.add.graphics().setDepth(10)
+    divider.lineStyle(1, 0xffffff, 0.12)
+    divider.beginPath()
+    divider.moveTo(leftEdgeX, Math.round((wordsLabelY + phrasesLabelY) / 2))
+    divider.lineTo(rightEdgeX, Math.round((wordsLabelY + phrasesLabelY) / 2))
+    divider.strokePath()
+
+    const cards: Phaser.GameObjects.Container[] = []
+
+    const createCard = (entry: (typeof wordEntries)[number], x: number, y: number) => {
       const accent = entry.phraseMode ? 0xffcf66 : 0x66e3ff
       const card = createGlassPanel(this, x, y, cardWidth, cardHeight, {
         depth: 7,
@@ -158,13 +197,30 @@ export class MenuScene extends Phaser.Scene {
       card.setData('entry', entry.id)
       card.setDepth(8)
       return card
+    }
+
+    wordEntries.forEach((entry, index) => {
+      const x = startX + index * (cardWidth + spacing)
+      cards.push(createCard(entry, x, wordsRowY))
+    })
+    phraseEntries.forEach((entry, index) => {
+      const x = startX + index * (cardWidth + spacing)
+      cards.push(createCard(entry, x, phrasesRowY))
     })
 
     this.updateCardHighlights(cards)
 
     let transitioning = false
     const buttonWidth = Math.min(Math.round(300 * uiScale), this.scale.width - 80)
-    const playButton = createButton(this, centerX, Math.round(390 * uiScale), 'Play', () => {
+    const playHeight = Math.round(60 * uiScale)
+    const settingsHeight = Math.round(56 * uiScale)
+    const panelBottom = panelY + panelHeight / 2
+    const buttonsTopGap = Math.round(22 * uiScale)
+    const buttonsGap = Math.round(14 * uiScale)
+    const playY = Math.round(panelBottom + buttonsTopGap + playHeight / 2)
+    const settingsY = Math.round(playY + playHeight / 2 + buttonsGap + settingsHeight / 2)
+
+    const playButton = createButton(this, centerX, playY, 'Play', () => {
       if (transitioning) return
       transitioning = true
       playButton.disableInteractive()
@@ -177,9 +233,9 @@ export class MenuScene extends Phaser.Scene {
       this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
         this.scene.start('Game', { difficulty: this.difficultyId })
       })
-    }, { width: buttonWidth, height: Math.round(60 * uiScale), depth: 9 })
+    }, { width: buttonWidth, height: playHeight, depth: 9 })
 
-    const settingsButton = createButton(this, centerX, Math.round(465 * uiScale), 'Settings', () => {
+    const settingsButton = createButton(this, centerX, settingsY, 'Settings', () => {
       if (transitioning) return
       transitioning = true
       playButton.disableInteractive()
@@ -188,7 +244,7 @@ export class MenuScene extends Phaser.Scene {
       this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
         this.scene.start('Settings')
       })
-    }, { width: buttonWidth, height: Math.round(56 * uiScale), depth: 9, accent: 0xffcf66 })
+    }, { width: buttonWidth, height: settingsHeight, depth: 9, accent: 0xffcf66 })
 
     this.add.text(centerX, this.scale.height - Math.round(40 * uiScale), 'Type fast. Stay afloat.', {
       fontFamily: 'BubbleDisplay',
@@ -203,7 +259,17 @@ export class MenuScene extends Phaser.Scene {
       .setDepth(90)
     vignette.setScale(Math.max(this.scale.width, this.scale.height) / 512)
 
-    const entrance = [this.title, panel, difficultyTitle, ...cards, playButton, settingsButton].filter(
+    const entrance = [
+      this.title,
+      panel,
+      difficultyTitle,
+      wordsLabel,
+      phrasesLabel,
+      divider,
+      ...cards,
+      playButton,
+      settingsButton
+    ].filter(
       Boolean
     ) as Phaser.GameObjects.GameObject[]
 

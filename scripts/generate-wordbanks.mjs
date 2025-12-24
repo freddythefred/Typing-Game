@@ -158,6 +158,58 @@ function shuffleInPlace(arr, rng) {
   }
 }
 
+function isNegativePhrase(phrase, language) {
+  const n = phrase.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+
+  if (language === 'en') {
+    const patterns = [
+      /\bdo not\b/,
+      /\bnot now\b/,
+      /\bnot today\b/,
+      /\bwrong\b/,
+      /\bbad\b/,
+      /\bsorry\b/,
+      /\bsick\b/,
+      /\bpanic\b/,
+      /\bworry\b/,
+      /\bstressed\b/,
+      /\bnervous\b/,
+      /\bconfused\b/,
+      /\blost\b/,
+      /\btired\b/,
+      /\bthirsty\b/,
+      /\bhungry\b/,
+      /\bcold\b/,
+      /\bhot\b/,
+      /\blate\b/,
+      /\bi need\b/,
+      /\bno idea\b/,
+      /\bno time\b/,
+      /\bproblem\b/
+    ]
+    return patterns.some((re) => re.test(n))
+  }
+
+  const patterns = [
+    /\bne\b/,
+    /\bpas\b/,
+    /\bdifficile\b/,
+    /\btard\b/,
+    /\bretard\b/,
+    /\bmal\b/,
+    /\btriste\b/,
+    /\bstress(e)?\b/,
+    /\bfatigue(e)?\b/,
+    /\bmalade\b/,
+    /\bperdu(e)?\b/,
+    /\binquiet\b/,
+    /\bcolere\b/,
+    /\bdesole\b/,
+    /\bpardon\b/
+  ]
+  return patterns.some((re) => re.test(n))
+}
+
 function generatePhrases(language) {
   const rng = createRng(language === 'fr' ? 1337 : 2025)
   const phrases = new Set()
@@ -166,6 +218,7 @@ function generatePhrases(language) {
     const phrase = sanitizePhrase(raw, language)
     if (!phrase) return
     if (wordCount(phrase) > 4) return
+    if (isNegativePhrase(phrase, language)) return
     const parts = phrase.split(' ').filter(Boolean)
     if (parts.length === 0) return
     if (parts.some((w) => !isGoodWord(w, language))) return
@@ -174,313 +227,231 @@ function generatePhrases(language) {
   }
 
   const addAll = (arr) => arr.forEach((p) => tryAdd(p))
+  const pick = (arr) => arr[Math.floor(rng() * arr.length)]
 
   if (language === 'en') {
     addAll([
       'thank you',
       'thanks a lot',
-      'no problem',
+      'you are welcome',
       'of course',
       'good morning',
       'good afternoon',
       'good evening',
       'good night',
+      'have a nice day',
+      'have a great day',
       'see you soon',
-      'see you later',
       'see you tomorrow',
       'take care',
       'good luck',
-      'excuse me',
-      'sorry about that',
-      'i am sorry',
+      'well done',
+      'great job',
+      'nice work',
+      'excellent work',
+      'keep it up',
+      'i am happy',
+      'i am excited',
+      'i am calm',
       'i am ready',
-      'i am tired',
-      'i am busy',
-      'i am free',
-      'i am fine',
-      'i am okay',
-      'i am here',
-      'i am back',
-      'i am done',
-      'i am lost',
-      'i am safe',
-      'i am late',
-      'i am early',
-      'i feel good',
-      'i feel great',
-      'i feel better',
-      'i feel sick',
-      'i feel tired',
-      'i feel hungry',
-      'i feel cold',
-      'i feel hot',
-      'right now',
-      'not now',
-      'not today',
-      'just a second',
-      'just a minute',
-      'one moment please',
-      'hold on',
-      'wait a moment',
-      'take your time',
-      'come with me',
-      'follow me',
-      'stay with me',
-      'listen to me',
-      'look at this',
-      'watch this',
-      'i need help',
-      'i need water',
-      'i need coffee',
-      'i need food',
-      'i need sleep',
-      'i need rest',
-      'i need time',
-      'i need a break',
-      'i need a minute',
-      'i need a nap',
-      'i need an answer',
-      'i need more time',
-      'i want coffee',
-      'i want water',
-      'i want food',
-      'i want sleep',
-      'i want to go',
-      'i want to stay',
-      'i want to leave',
-      'i want to help',
-      'i want to talk',
-      'i want to rest',
-      'i want to eat',
-      'i want to drink',
-      'i can help',
-      'i can wait',
-      'i can try',
+      'i am grateful',
+      'i am confident',
+      'i am proud',
       'i can do it',
-      'i can make it',
-      'i will be back',
-      'i will be there',
-      'i will call you',
-      'can you help',
-      'can you help me',
-      'can you wait',
-      'can you come',
-      'can you listen',
-      'can you look',
-      'can you repeat',
-      'can you stop',
-      'can you start',
-      'can you slow down',
-      'can you calm down',
-      'please help',
-      'please help me',
-      'please wait',
-      'please listen',
-      'please look',
-      'please come',
-      'please stop',
-      'please start',
-      'please speak slowly',
-      'let us begin',
-      'let us go',
-      'let us talk',
-      'let us try',
-      'do not worry',
-      'do not panic',
-      'do not rush',
-      'do not move',
-      'do not stop',
-      'do you agree',
-      'do you know',
-      'do you understand',
-      'are you okay',
-      'are you ready',
-      'where are you',
-      'where are we',
-      'what is this',
-      'what is that',
-      'what is wrong',
-      'what is your name',
-      'what time is it',
-      'how are you',
-      'how are you doing',
-      'what are you doing',
-      'how was your day',
-      'it is fine',
-      'it is okay',
-      'it is true',
-      'it is enough',
-      'this is enough',
-      'that is fine',
-      'that is true'
+      'we can do it',
+      'you can do it',
+      'you are great',
+      'you are amazing',
+      'this is excellent',
+      'this is amazing',
+      'this is great',
+      'that is excellent',
+      'that is amazing',
+      'that is great',
+      'it is excellent',
+      'it is amazing',
+      'it is great',
+      'it is perfect',
+      'it is wonderful',
+      'it is awesome',
+      'what a great day'
     ])
 
     const iAm = [
       'ready',
-      'tired',
-      'busy',
-      'free',
-      'fine',
-      'okay',
-      'sorry',
-      'sure',
       'calm',
       'happy',
-      'sad',
-      'hungry',
-      'thirsty',
-      'cold',
-      'hot',
-      'safe',
-      'lost',
-      'late',
-      'early',
-      'bored',
       'excited',
-      'nervous',
-      'stressed',
-      'confused'
+      'brave',
+      'strong',
+      'grateful',
+      'confident',
+      'proud',
+      'optimistic',
+      'relaxed',
+      'focused'
     ]
     iAm.forEach((adj) => tryAdd(`i am ${adj}`))
 
     const iFeel = [
-      'fine',
       'good',
       'great',
-      'better',
-      'okay',
-      'tired',
-      'hungry',
-      'thirsty',
-      'cold',
-      'hot',
-      'stressed',
-      'nervous',
       'calm',
-      'safe',
-      'lost',
-      'ready'
+      'happy',
+      'ready',
+      'strong',
+      'confident',
+      'grateful',
+      'relaxed'
     ]
     iFeel.forEach((adj) => tryAdd(`i feel ${adj}`))
 
-    const need = [
-      'help',
-      'water',
-      'coffee',
-      'tea',
-      'food',
-      'sleep',
-      'rest',
-      'time',
-      'space',
-      'money',
-      'advice',
-      'support'
-    ]
-    need.forEach((w) => tryAdd(`i need ${w}`))
-
-    const needA = ['break', 'minute', 'nap', 'ride', 'hand', 'hint', 'plan', 'chance', 'favor', 'key']
-    needA.forEach((w) => tryAdd(`i need a ${w}`))
-
-    const iHave = ['time', 'questions', 'an idea', 'a plan', 'a problem', 'no idea', 'no time']
-    iHave.forEach((w) => tryAdd(`i have ${w}`))
-
-    const want = ['coffee', 'water', 'tea', 'food', 'sleep', 'rest', 'help', 'answers', 'a break', 'more time']
-    want.forEach((w) => tryAdd(`i want ${w}`))
-
-    const wantTo = [
-      'go',
-      'stay',
-      'leave',
-      'rest',
-      'sleep',
-      'eat',
-      'drink',
-      'talk',
-      'help',
-      'wait',
-      'start',
-      'stop',
-      'try',
-      'learn',
-      'play',
-      'work',
-      'relax',
-      'walk',
-      'run'
-    ]
-    wantTo.forEach((v) => tryAdd(`i want to ${v}`))
-
-    const canYou = ['help', 'wait', 'come', 'stay', 'listen', 'look', 'repeat', 'stop', 'start', 'check', 'call']
-    canYou.forEach((v) => tryAdd(`can you ${v}`))
-    canYou.forEach((v) => tryAdd(`can you please ${v}`))
-
-    const please = ['help', 'wait', 'listen', 'look', 'repeat', 'stop', 'start', 'check', 'come', 'stay', 'call']
-    please.forEach((v) => tryAdd(`please ${v}`))
-
-    const pleaseMe = ['help', 'call', 'tell', 'show']
-    pleaseMe.forEach((v) => tryAdd(`please ${v} me`))
-
-    const iCan = [
-      'help',
-      'wait',
-      'try',
-      'learn',
-      'listen',
-      'look',
-      'go',
-      'come',
-      'stay',
-      'leave',
-      'start',
-      'stop',
-      'work',
-      'play',
-      'run',
-      'walk',
-      'talk',
-      'rest',
-      'sleep'
-    ]
-    iCan.forEach((v) => tryAdd(`i can ${v}`))
-
-    const iWill = ['help', 'wait', 'try', 'call', 'come', 'go', 'stay', 'leave', 'start', 'stop', 'listen', 'look']
-    iWill.forEach((v) => tryAdd(`i will ${v}`))
-
-    const iNeedTo = ['go', 'leave', 'stay', 'rest', 'sleep', 'eat', 'drink', 'work', 'start', 'stop', 'wait']
-    iNeedTo.forEach((v) => tryAdd(`i need to ${v}`))
-
-    const iHaveTo = ['go', 'leave', 'stay', 'work', 'start', 'stop', 'wait', 'talk']
-    iHaveTo.forEach((v) => tryAdd(`i have to ${v}`))
-
-    const canI = ['help', 'come', 'go', 'stay', 'try', 'start', 'stop', 'leave', 'join']
-    canI.forEach((v) => tryAdd(`can i ${v}`))
-
     const itIs = [
-      'fine',
-      'okay',
       'good',
       'great',
-      'bad',
       'true',
-      'late',
-      'early',
       'time',
       'enough',
       'important',
-      'possible'
+      'possible',
+      'excellent',
+      'amazing',
+      'perfect',
+      'wonderful'
     ]
     itIs.forEach((w) => tryAdd(`it is ${w}`))
 
-    const thisIs = ['good', 'bad', 'fine', 'okay', 'enough', 'great', 'wrong', 'right']
+    const thisIs = ['good', 'great', 'excellent', 'amazing', 'perfect', 'wonderful', 'awesome']
     thisIs.forEach((w) => tryAdd(`this is ${w}`))
     thisIs.forEach((w) => tryAdd(`that is ${w}`))
 
-    const iAmNow = ['ready', 'busy', 'free', 'tired', 'hungry', 'sorry', 'fine', 'okay']
+    const iAmNow = ['ready', 'happy', 'excited', 'calm', 'grateful', 'confident']
     iAmNow.forEach((w) => tryAdd(`i am ${w} now`))
 
-    const iAmToday = ['busy', 'free', 'tired', 'happy', 'sad', 'ready']
+    const iAmToday = ['happy', 'excited', 'ready', 'calm', 'confident']
     iAmToday.forEach((w) => tryAdd(`i am ${w} today`))
+
+    const positivePersonAdjectives = [
+      'happy',
+      'excited',
+      'calm',
+      'ready',
+      'confident',
+      'grateful',
+      'proud',
+      'brave',
+      'strong',
+      'kind',
+      'smart',
+      'optimistic',
+      'relaxed',
+      'focused',
+      'joyful',
+      'cheerful',
+      'thankful',
+      'positive',
+      'motivated',
+      'inspired',
+      'lucky',
+      'creative',
+      'energetic',
+      'friendly',
+      'helpful'
+    ]
+
+    const positiveThingAdjectives = [
+      'good',
+      'great',
+      'excellent',
+      'amazing',
+      'awesome',
+      'wonderful',
+      'perfect',
+      'fantastic',
+      'brilliant',
+      'beautiful',
+      'helpful',
+      'incredible',
+      'cool',
+      'nice',
+      'strong',
+      'clear',
+      'smart'
+    ]
+
+    const positiveVerbs = [
+      'win',
+      'help',
+      'start',
+      'learn',
+      'try',
+      'play',
+      'smile',
+      'relax',
+      'build',
+      'create',
+      'grow',
+      'shine',
+      'improve',
+      'succeed'
+    ]
+
+    const positiveNouns = [
+      'day',
+      'time',
+      'plan',
+      'idea',
+      'chance',
+      'moment',
+      'goal',
+      'future',
+      'story',
+      'result',
+      'win',
+      'breakthrough',
+      'victory',
+      'surprise',
+      'smile'
+    ]
+    const dayAdjectives = ['good', 'great', 'wonderful', 'amazing', 'beautiful', 'fantastic', 'excellent', 'awesome']
+    const timeAdjectives = ['good', 'great', 'wonderful', 'amazing', 'excellent', 'fantastic']
+
+    const templates = [
+      () => `i am ${pick(positivePersonAdjectives)}`,
+      () => `i feel ${pick(positivePersonAdjectives)}`,
+      () => `i am very ${pick(positivePersonAdjectives)}`,
+      () => `i feel very ${pick(positivePersonAdjectives)}`,
+      () => `this is ${pick(positiveThingAdjectives)}`,
+      () => `that is ${pick(positiveThingAdjectives)}`,
+      () => `it is ${pick(positiveThingAdjectives)}`,
+      () => `this is really ${pick(positiveThingAdjectives)}`,
+      () => `that is really ${pick(positiveThingAdjectives)}`,
+      () => `you are ${pick(positivePersonAdjectives)}`,
+      () => `you are very ${pick(positivePersonAdjectives)}`,
+      () => `we are ${pick(positivePersonAdjectives)}`,
+      () => `we are very ${pick(positivePersonAdjectives)}`,
+      () => `we can ${pick(positiveVerbs)}`,
+      () => `we will ${pick(positiveVerbs)}`,
+      () => `you can ${pick(positiveVerbs)}`,
+      () => `have a ${pick(positiveNouns)}`,
+      () => `have a ${pick(dayAdjectives)} day`,
+      () => `have a ${pick(timeAdjectives)} time`,
+      () => `have a great weekend`,
+      () => `keep going`,
+      () => `keep smiling`,
+      () => `stay positive`,
+      () => `you got this`,
+      () => `we got this`,
+      () => `we did it`,
+      () => `you did great`
+    ]
+
+    let attempts = 0
+    const maxAttempts = PHRASE_COUNT * 800
+    while (phrases.size < PHRASE_COUNT && attempts < maxAttempts) {
+      attempts += 1
+      tryAdd(pick(templates)())
+    }
   } else {
     addAll([
       'merci',
@@ -496,15 +467,9 @@ function generatePhrases(language) {
       'à tout de suite',
       'tout de suite',
       'bien sûr',
-      'pas de souci',
-      'pas de problème',
-      'pas grave',
       'd accord',
       'excuse moi',
-      'pardon',
-      'je suis désolé',
       'je suis prêt',
-      'je suis fatigué',
       'je suis occupé',
       'je suis libre',
       'je suis là',
@@ -513,10 +478,6 @@ function generatePhrases(language) {
       'je vais mieux',
       'ça va',
       'comment ça va',
-      'où es tu',
-      'où sommes nous',
-      'que fais tu',
-      'tu es prêt',
       'tu as raison',
       'c est bon',
       'c est vrai',
@@ -525,147 +486,67 @@ function generatePhrases(language) {
       'c est parti',
       'c est parfait',
       'c est facile',
-      'c est difficile',
       'c est possible',
       'c est important',
-      'il est tard',
-      'il est tôt',
-      'il faut partir',
-      'il faut attendre',
-      'il faut essayer',
-      'il faut y aller',
+      'c est excellent',
+      'c est génial',
+      'c est super',
       'on y va',
-      'viens ici',
-      'viens avec moi',
-      'reste avec moi',
       'aide moi',
-      'attends moi',
       'écoute moi',
       'regarde ça',
-      'je veux dormir',
-      'je veux manger',
-      'je veux partir',
-      'je veux rester',
-      'je veux rentrer',
-      'je veux parler',
       'je veux aider',
-      'je veux une pause',
-      'je veux du café',
-      'je veux du thé',
       'je peux aider',
-      'je peux venir',
-      'je peux attendre',
       'je peux le faire',
-      'je peux y aller',
-      'je dois partir',
-      'je dois rentrer',
-      'je dois attendre',
-      'je dois travailler',
-      'je dois y aller',
-      'je vais partir',
-      'je vais rentrer',
-      'je vais attendre',
-      'je vais manger',
-      'je vais dormir',
-      'je ne sais pas',
-      'ne t inquiète pas',
-      'ne bouge pas',
-      'ne t en fais pas'
+      'on peut y aller',
+      'on va gagner',
+      'on va réussir',
+      'tout va bien'
     ])
 
     const jeSuis = [
       'prêt',
-      'fatigué',
       'occupé',
       'libre',
-      'désolé',
       'calme',
       'heureux',
-      'triste',
-      'malade',
-      'perdu',
-      'stressé',
-      'inquiet',
       'content',
       'surpris',
-      'en retard',
+      'motivé',
+      'confiant',
+      'ravi',
       'en avance',
       'en route',
       'en forme',
       'de retour',
-      'en colère'
+      'fort'
     ]
     jeSuis.forEach((adj) => tryAdd(`je suis ${adj}`))
 
     const jePeux = [
       'aider',
-      'venir',
-      'attendre',
-      'parler',
-      'écouter',
-      'regarder',
+      'réussir',
+      'gagner',
+      'apprendre',
       'commencer',
-      'arrêter',
+      'avancer',
+      'progresser',
+      'continuer',
       'essayer',
-      'prendre',
-      'finir',
-      'rester',
-      'partir'
+      'sourire',
+      'jouer'
     ]
     jePeux.forEach((v) => tryAdd(`je peux ${v}`))
 
-    const peuxTu = ['aider', 'venir', 'attendre', 'écouter', 'regarder', 'répéter', 'parler', 'm aider', 'me dire', 'me montrer']
-    peuxTu.forEach((v) => tryAdd(`peux tu ${v}`))
-
-    const jeMeSens = ['bien', 'mal', 'mieux', 'fatigué', 'prêt', 'calme', 'stressé', 'perdu', 'heureux', 'triste']
+    const jeMeSens = ['bien', 'mieux', 'super', 'prêt', 'calme', 'heureux', 'content', 'motivé', 'confiant', 'ravi']
     jeMeSens.forEach((adj) => tryAdd(`je me sens ${adj}`))
 
-    const jeVeux = [
-      'dormir',
-      'manger',
-      'boire',
-      'partir',
-      'rester',
-      'rentrer',
-      'parler',
-      'aider',
-      'attendre',
-      'savoir',
-      'comprendre',
-      'voir',
-      'une pause',
-      'un moment',
-      'du café',
-      'du thé',
-      'du temps'
-    ]
-    jeVeux.forEach((w) => tryAdd(`je veux ${w}`))
-
     const verbInf = [
-      'partir',
-      'rentrer',
-      'attendre',
-      'travailler',
-      'manger',
-      'boire',
-      'dormir',
-      'parler',
-      'venir',
-      'aller',
-      'rester',
       'commencer',
-      'arrêter',
       'essayer',
-      'écouter',
-      'regarder',
       'prendre',
       'finir'
     ]
-    verbInf.forEach((v) => tryAdd(`je dois ${v}`))
-    verbInf.forEach((v) => tryAdd(`je vais ${v}`))
-    verbInf.forEach((v) => tryAdd(`il faut ${v}`))
-    verbInf.forEach((v) => tryAdd(`tu peux ${v}`))
-    verbInf.forEach((v) => tryAdd(`on peut ${v}`))
     verbInf.forEach((v) => tryAdd(`on va ${v}`))
 
     const cEst = [
@@ -679,15 +560,16 @@ function generatePhrases(language) {
       'parfait',
       'clair',
       'facile',
-      'difficile',
       'incroyable',
       'super',
       'génial',
-      'bizarre'
+      'excellent',
+      'magnifique',
+      'formidable'
     ]
     cEst.forEach((w) => tryAdd(`c est ${w}`))
 
-    const tuEs = ['prêt', 'fatigué', 'là', 'ici', 'sûr', 'calme']
+    const tuEs = ['prêt', 'là', 'ici', 'sûr', 'calme', 'content', 'heureux', 'fort']
     tuEs.forEach((w) => tryAdd(`tu es ${w}`))
 
     const onSeVoit = ['demain', 'bientôt', 'ce soir']
@@ -695,9 +577,6 @@ function generatePhrases(language) {
 
     const merciPour = ['ton aide', 'votre aide', 'tout', 'ça']
     merciPour.forEach((w) => tryAdd(`merci pour ${w}`))
-
-    const silVousPlait = ['s il te plaît', 's il vous plaît']
-    silVousPlait.forEach((w) => tryAdd(w))
 
     addAll([
       'à plus tard',
@@ -710,67 +589,144 @@ function generatePhrases(language) {
       'ça marche',
       'c est ok',
       'je comprends',
-      'je ne comprends pas',
       'je sais',
-      'je sais pas',
       'je suis sûr',
       'tu es sûr',
       'tu es là',
       'tu es ici',
-      'où vas tu',
-      'où es tu',
-      'où est ça',
-      'c est où',
-      'c est loin',
-      'c est près',
-      'je veux un café',
-      'je veux un thé',
-      'je veux un taxi',
-      'je veux une idée',
-      'je veux un plan',
-      'je veux ton avis',
-      'je veux mon tour',
-      'je veux aller dehors',
-      'je veux rester ici',
-      'je veux venir aussi',
-      'je peux venir aussi',
       'je peux aider aussi',
-      'tu peux venir aussi',
       'on peut y aller',
-      'on peut attendre',
-      'on va y aller',
-      'je reviens vite',
       'je suis prêt',
       'je suis là',
       'je suis ici',
-      'je suis revenu',
-      'je suis parti',
       'je suis calme',
       'je suis content',
-      'viens vite',
-      'viens maintenant',
-      'attends un peu',
-      'attends ici',
-      'reste ici',
-      'reste là',
-      'on se calme',
       'on peut y aller',
       'on va commencer',
       'on va essayer',
-      'on va attendre',
-      'on va partir',
-      'tu peux aider',
-      'tu peux venir',
-      'tu peux attendre',
-      'tu peux regarder',
-      'tu peux écouter',
-      'tu peux répéter',
-      'tu peux partir',
-      'dis moi',
-      'montre moi',
-      'répète encore',
-      'parle plus lentement'
+      'bien joué',
+      'bravo',
+      'excellent travail'
     ])
+
+    const positivePersonAdjectives = [
+      'heureux',
+      'content',
+      'calme',
+      'prêt',
+      'fort',
+      'motivé',
+      'confiant',
+      'ravi',
+      'serein',
+      'optimiste',
+      'fier',
+      'joyeux',
+      'détendu',
+      'inspiré',
+      'énergique',
+      'souriant',
+      'créatif',
+      'gentil',
+      'sympa',
+      'patient',
+      'curieux'
+    ]
+
+    const positiveFeelingWords = [
+      'bien',
+      'super',
+      'heureux',
+      'content',
+      'calme',
+      'motivé',
+      'confiant',
+      'ravi',
+      'serein',
+      'optimiste',
+      'détendu',
+      'joyeux'
+    ]
+
+    const positiveThingAdjectives = [
+      'bien',
+      'super',
+      'génial',
+      'excellent',
+      'parfait',
+      'magnifique',
+      'formidable',
+      'incroyable',
+      'fantastique',
+      'splendide',
+      'brillant',
+      'merveilleux',
+      'superbe',
+      'top',
+      'cool',
+      'sympa',
+      'chouette',
+      'nickel',
+      'clair',
+      'simple',
+      'positif',
+      'utile'
+    ]
+
+    const positiveStatusWords = ['bien', 'super', 'génial', 'nickel', 'parfait']
+
+    const positiveVerbs = [
+      'gagner',
+      'réussir',
+      'commencer',
+      'avancer',
+      'progresser',
+      'continuer',
+      'essayer',
+      'apprendre',
+      'jouer',
+      'sourire',
+      'aider',
+      'grandir',
+      'créer',
+      'partager',
+      'briller',
+      's améliorer',
+      's entraîner',
+      'se lancer'
+    ]
+
+    const templates = [
+      () => `je vais bien`,
+      () => `ça va très bien`,
+      () => `je suis ${pick(positivePersonAdjectives)}`,
+      () => `je suis très ${pick(positivePersonAdjectives)}`,
+      () => `je me sens ${pick(positiveFeelingWords)}`,
+      () => `c est ${pick(positiveThingAdjectives)}`,
+      () => `c est très ${pick(positiveThingAdjectives)}`,
+      () => `c est vraiment ${pick(positiveThingAdjectives)}`,
+      () => `tout va ${pick(positiveStatusWords)}`,
+      () => `tout est ${pick(positiveThingAdjectives)}`,
+      () => `tout est très ${pick(positiveThingAdjectives)}`,
+      () => `on va ${pick(positiveVerbs)}`,
+      () => `on peut ${pick(positiveVerbs)}`,
+      () => `on va très bien`,
+      () => `tu es ${pick(positivePersonAdjectives)}`,
+      () => `tu es très ${pick(positivePersonAdjectives)}`,
+      () => `tu vas réussir`,
+      () => `tu peux réussir`,
+      () => `tu peux le faire`,
+      () => `bien joué`,
+      () => `bravo`,
+      () => `excellent travail`
+    ]
+
+    let attempts = 0
+    const maxAttempts = PHRASE_COUNT * 900
+    while (phrases.size < PHRASE_COUNT && attempts < maxAttempts) {
+      attempts += 1
+      tryAdd(pick(templates)())
+    }
   }
 
   if (phrases.size < PHRASE_COUNT) {

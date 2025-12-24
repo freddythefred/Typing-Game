@@ -1,4 +1,4 @@
-export type DifficultyId = 'level1' | 'level2' | 'level3' | 'extra'
+export type DifficultyId = 'level1' | 'level2' | 'level3' | 'extra' | 'phrases2' | 'phrases3'
 
 export type DifficultyConfig = {
   id: DifficultyId
@@ -56,7 +56,7 @@ export const DIFFICULTY: Record<DifficultyId, DifficultyConfig> = {
   },
   extra: {
     id: 'extra',
-    label: 'Extra',
+    label: 'Level 1',
     spawnIntervalMs: 3000,
     gravityY: 0.05,
     wind: 0.0005,
@@ -66,5 +66,35 @@ export const DIFFICULTY: Record<DifficultyId, DifficultyConfig> = {
     comboBonus: 22,
     collisions: true,
     phraseMode: true
+  },
+  phrases2: {
+    id: 'phrases2',
+    label: 'Level 2',
+    spawnIntervalMs: 2600,
+    gravityY: 0.05,
+    wind: 0.00055,
+    maxBubbles: 9,
+    bubbleRadius: [52, 70],
+    points: 260,
+    comboBonus: 26,
+    collisions: true,
+    phraseMode: true
+  },
+  phrases3: {
+    id: 'phrases3',
+    label: 'Level 3',
+    spawnIntervalMs: 2200,
+    gravityY: 0.05,
+    wind: 0.0006,
+    maxBubbles: 10,
+    bubbleRadius: [52, 70],
+    points: 300,
+    comboBonus: 30,
+    collisions: true,
+    phraseMode: true
   }
+}
+
+export function isDifficultyId(value: unknown): value is DifficultyId {
+  return typeof value === 'string' && value in DIFFICULTY
 }

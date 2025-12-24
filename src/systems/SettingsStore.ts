@@ -1,4 +1,4 @@
-import type { DifficultyId } from '../config/difficulty'
+import { isDifficultyId, type DifficultyId } from '../config/difficulty'
 import type { LanguageId } from '../data/wordBank'
 
 export type Settings = {
@@ -22,7 +22,9 @@ export function loadSettings(): Settings {
     const raw = window.localStorage.getItem(STORAGE_KEY)
     if (!raw) return { ...DEFAULT_SETTINGS }
     const parsed = JSON.parse(raw) as Partial<Settings>
-    return { ...DEFAULT_SETTINGS, ...parsed }
+    const next: Settings = { ...DEFAULT_SETTINGS, ...parsed } as Settings
+    if (!isDifficultyId(next.difficulty)) next.difficulty = DEFAULT_SETTINGS.difficulty
+    return next
   } catch {
     return { ...DEFAULT_SETTINGS }
   }
