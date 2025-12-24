@@ -7,6 +7,7 @@ import { AudioSystem } from '../systems/AudioSystem'
 import { loadSettings } from '../systems/SettingsStore'
 import { getBank, pickWord } from '../data/wordBank'
 import { validateWordBank } from '../data/validate'
+import { createButton } from '../ui/components/UiButton'
 import { createGlassPanel } from '../ui/components/GlassPanel'
 import { createUnderwaterBackground, type UnderwaterBackground } from '../ui/fx/UnderwaterBackground'
 
@@ -139,6 +140,7 @@ export class GameScene extends Phaser.Scene {
     this.typingSystem.setAccentInsensitive(this.settings.accentInsensitive)
 
     this.createHud()
+    this.createBackToMenuButton()
     this.startTime = this.time.now
 
     this.spawnTimer = this.time.addEvent({
@@ -447,7 +449,7 @@ export class GameScene extends Phaser.Scene {
     foam.clear()
 
     const bandHeight = Math.min(34, Math.max(16, this.waterHeight * 0.16))
-    foam.fillStyle(0xbff8ff, reduceMotion ? 0.03 : 0.05)
+    foam.fillStyle(0xbff8ff, reduceMotion ? 0.025 : 0.04)
     foam.beginPath()
     foam.moveTo(first.x, first.y)
     for (let i = 1; i < points.length; i += 1) {
@@ -459,7 +461,7 @@ export class GameScene extends Phaser.Scene {
     foam.closePath()
     foam.fillPath()
 
-    foam.lineStyle(6, 0xffffff, reduceMotion ? 0.08 : 0.14)
+    foam.lineStyle(3, 0xffffff, reduceMotion ? 0.05 : 0.09)
     foam.beginPath()
     foam.moveTo(first.x, first.y)
     for (let i = 1; i < points.length; i += 1) {
@@ -467,7 +469,7 @@ export class GameScene extends Phaser.Scene {
     }
     foam.strokePath()
 
-    foam.lineStyle(2, 0xbff8ff, reduceMotion ? 0.1 : 0.18)
+    foam.lineStyle(1, 0xbff8ff, reduceMotion ? 0.06 : 0.11)
     foam.beginPath()
     foam.moveTo(first.x, first.y - 1)
     for (let i = 1; i < points.length; i += 1) {
@@ -476,7 +478,7 @@ export class GameScene extends Phaser.Scene {
     foam.strokePath()
 
     if (!reduceMotion) {
-      foam.fillStyle(0xffffff, 0.1)
+      foam.fillStyle(0xffffff, 0.08)
       for (let i = 2; i < points.length - 2; i += 4) {
         const phase = this.waterWavePhases[i] ?? 0
         const sparkle = (Math.sin(t * 2.2 + phase) + 1) / 2
@@ -523,6 +525,37 @@ export class GameScene extends Phaser.Scene {
     } catch (error) {
       console.error('[GameScene] cleanup failed', error)
     }
+  }
+
+  private createBackToMenuButton() {
+    const uiScale = Phaser.Math.Clamp(Math.min(this.scale.width / 1280, this.scale.height / 720), 0.82, 1.15)
+    const margin = Math.round(26 * uiScale)
+    const width = Math.min(Math.round(260 * uiScale), Math.max(180, this.scale.width - margin * 2))
+    const height = Math.round(52 * uiScale)
+
+    const x = this.scale.width - margin - width / 2
+    const y = margin + height / 2
+
+    let transitioning = false
+
+    const button = createButton(this, x, y, 'Back to Menu', () => {
+      if (transitioning) return
+      transitioning = true
+      button.disableInteractive()
+
+      let started = false
+      const go = () => {
+        if (started) return
+        started = true
+        this.scene.start('Menu')
+      }
+
+      this.cameras.main.fadeOut(220, 4, 10, 18)
+      this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, go)
+      this.time.delayedCall(260, go)
+    }, { width, height, depth: 30 })
+
+    button.setDepth(30)
   }
 
   private createHud() {

@@ -39,6 +39,19 @@ export class SettingsScene extends Phaser.Scene {
       float: true
     })
 
+    const panelRight = centerX + panelWidth / 2
+
+    const buttonWidth = Math.min(Math.round(170 * uiScale), this.scale.width - 80)
+    const buttonHeight = Math.round(50 * uiScale)
+    const buttonOffsetX = Math.min(Math.round(210 * uiScale), Math.round(panelWidth * 0.36))
+
+    const textGap = Math.round(16 * uiScale)
+    const textRightPadding = Math.round(26 * uiScale)
+    const minTextWidth = 140
+    const unclampedTextX = centerX - buttonOffsetX + buttonWidth / 2 + textGap
+    const textX = Math.min(unclampedTextX, panelRight - textRightPadding - minTextWidth)
+    const textWrapWidth = Math.max(minTextWidth, Math.floor(panelRight - textRightPadding - textX))
+
     this.add
       .text(centerX, Math.round(120 * uiScale), 'Settings', {
         fontFamily: 'BubbleDisplay',
@@ -51,38 +64,40 @@ export class SettingsScene extends Phaser.Scene {
       .setShadow(0, 12, 'rgba(0,0,0,0.35)', 22, true, true)
 
     this.languageText = this.add
-      .text(centerX, Math.round(204 * uiScale), '', {
+      .text(textX, Math.round(204 * uiScale), '', {
         fontFamily: 'BubbleDisplay',
         fontSize: `${Math.round(22 * uiScale)}px`,
-        color: '#eaf6ff'
+        color: '#eaf6ff',
+        align: 'left',
+        wordWrap: { width: textWrapWidth, useAdvancedWrap: true }
       })
-      .setOrigin(0.5)
+      .setOrigin(0, 0.5)
       .setDepth(10)
       .setShadow(0, 6, 'rgba(0,0,0,0.28)', 12, false, true)
 
     this.accentText = this.add
-      .text(centerX, Math.round(268 * uiScale), '', {
+      .text(textX, Math.round(268 * uiScale), '', {
         fontFamily: 'BubbleDisplay',
         fontSize: `${Math.round(22 * uiScale)}px`,
-        color: '#eaf6ff'
+        color: '#eaf6ff',
+        align: 'left',
+        wordWrap: { width: textWrapWidth, useAdvancedWrap: true }
       })
-      .setOrigin(0.5)
+      .setOrigin(0, 0.5)
       .setDepth(10)
       .setShadow(0, 6, 'rgba(0,0,0,0.28)', 12, false, true)
 
     this.volumeText = this.add
-      .text(centerX, Math.round(332 * uiScale), '', {
+      .text(textX, Math.round(332 * uiScale), '', {
         fontFamily: 'BubbleDisplay',
         fontSize: `${Math.round(22 * uiScale)}px`,
-        color: '#eaf6ff'
+        color: '#eaf6ff',
+        align: 'left',
+        wordWrap: { width: textWrapWidth, useAdvancedWrap: true }
       })
-      .setOrigin(0.5)
+      .setOrigin(0, 0.5)
       .setDepth(10)
       .setShadow(0, 6, 'rgba(0,0,0,0.28)', 12, false, true)
-
-    const buttonWidth = Math.min(Math.round(170 * uiScale), this.scale.width - 80)
-    const buttonHeight = Math.round(50 * uiScale)
-    const buttonOffsetX = Math.min(Math.round(210 * uiScale), Math.round(panelWidth * 0.36))
 
     const languageButton = createButton(this, centerX - buttonOffsetX, Math.round(204 * uiScale), 'Language', () => {
       this.settings.language = this.settings.language === 'en' ? 'fr' : 'en'

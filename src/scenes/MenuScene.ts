@@ -75,13 +75,17 @@ export class MenuScene extends Phaser.Scene {
     difficultyTitle.setOrigin(0.5)
     difficultyTitle.setDepth(10)
 
-    const cards = Object.values(DIFFICULTY).map((entry, index) => {
-      const spacing = Math.round(18 * uiScale)
-      const maxCardsWidth = Math.min(this.scale.width - 60, Math.round(920 * uiScale))
-      const cardWidth = Math.floor((maxCardsWidth - spacing * 3) / 4)
-      const cardHeight = Math.round(84 * uiScale)
-      const totalWidth = cardWidth * 4 + spacing * 3
-      const startX = centerX - totalWidth / 2 + cardWidth / 2
+    const entries = Object.values(DIFFICULTY)
+    const spacing = Math.round(18 * uiScale)
+    const cardHeight = Math.round(84 * uiScale)
+
+    const cardsInnerPadding = Math.round(50 * uiScale)
+    const maxCardsWidth = Math.max(0, Math.min(panelWidth - cardsInnerPadding, Math.round(920 * uiScale)))
+    const cardWidth = Math.floor((maxCardsWidth - spacing * (entries.length - 1)) / entries.length)
+    const totalWidth = cardWidth * entries.length + spacing * (entries.length - 1)
+    const startX = centerX - totalWidth / 2 + cardWidth / 2
+
+    const cards = entries.map((entry, index) => {
       const x = startX + index * (cardWidth + spacing)
       const y = Math.round(262 * uiScale)
 

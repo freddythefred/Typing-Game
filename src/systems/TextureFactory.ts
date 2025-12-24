@@ -161,39 +161,60 @@ export function createWaterTexture(scene: Phaser.Scene) {
   ctx.clearRect(0, 0, width, height)
 
   const gradient = ctx.createLinearGradient(0, 0, 0, height)
-  gradient.addColorStop(0, 'rgba(65, 155, 205, 0.88)')
-  gradient.addColorStop(0.28, 'rgba(35, 110, 165, 0.92)')
-  gradient.addColorStop(1, 'rgba(8, 30, 55, 0.98)')
+  gradient.addColorStop(0, 'rgba(80, 175, 220, 0.86)')
+  gradient.addColorStop(0.32, 'rgba(32, 120, 175, 0.92)')
+  gradient.addColorStop(1, 'rgba(6, 22, 44, 0.98)')
   ctx.fillStyle = gradient
   ctx.fillRect(0, 0, width, height)
 
   const foam = ctx.createLinearGradient(0, 0, 0, height * 0.32)
-  foam.addColorStop(0, 'rgba(210, 250, 255, 0.55)')
+  foam.addColorStop(0, 'rgba(215, 252, 255, 0.45)')
   foam.addColorStop(1, 'rgba(210, 250, 255, 0)')
   ctx.fillStyle = foam
   ctx.fillRect(0, 0, width, height * 0.32)
 
-  ctx.strokeStyle = 'rgba(170, 240, 255, 0.55)'
-  ctx.lineWidth = 2.25
-  for (let i = 0; i < 7; i += 1) {
-    const y = 10 + i * 16
-    ctx.beginPath()
-    ctx.moveTo(0, y)
-    ctx.bezierCurveTo(width * 0.18, y - 7, width * 0.42, y + 7, width * 0.6, y - 4)
-    ctx.bezierCurveTo(width * 0.76, y + 6, width * 0.92, y - 7, width, y + 3)
-    ctx.stroke()
+  ctx.save()
+  ctx.globalCompositeOperation = 'screen'
+  ctx.globalAlpha = 1
+  try {
+    ctx.filter = 'blur(10px)'
+  } catch {
+    // ignore: filter not supported
   }
 
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)'
-  ctx.lineWidth = 1.2
-  for (let i = 0; i < 4; i += 1) {
-    const y = 18 + i * 26
+  for (let i = 0; i < 18; i += 1) {
+    const x = Math.random() * width
+    const y = Math.random() * (height * 0.85)
+    const r = 34 + Math.random() * 84
+    const blob = ctx.createRadialGradient(x, y, 0, x, y, r)
+    blob.addColorStop(0, 'rgba(200, 250, 255, 0.08)')
+    blob.addColorStop(1, 'rgba(200, 250, 255, 0)')
+    ctx.fillStyle = blob
     ctx.beginPath()
-    ctx.moveTo(0, y)
-    ctx.bezierCurveTo(width * 0.22, y + 5, width * 0.48, y - 5, width * 0.62, y + 2)
-    ctx.bezierCurveTo(width * 0.78, y - 4, width * 0.92, y + 4, width, y - 2)
-    ctx.stroke()
+    ctx.arc(x, y, r, 0, Math.PI * 2)
+    ctx.fill()
   }
+
+  try {
+    ctx.filter = 'blur(0px)'
+  } catch {
+    // ignore
+  }
+  ctx.restore()
+
+  ctx.save()
+  ctx.globalCompositeOperation = 'overlay'
+  for (let i = 0; i < 6; i += 1) {
+    const y = 10 + i * 20 + Math.random() * 4
+    const h = 18 + Math.random() * 12
+    const band = ctx.createLinearGradient(0, y, 0, y + h)
+    band.addColorStop(0, 'rgba(255, 255, 255, 0)')
+    band.addColorStop(0.5, 'rgba(255, 255, 255, 0.12)')
+    band.addColorStop(1, 'rgba(255, 255, 255, 0)')
+    ctx.fillStyle = band
+    ctx.fillRect(0, y, width, h)
+  }
+  ctx.restore()
 
   canvas.refresh()
 }
