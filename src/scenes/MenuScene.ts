@@ -162,14 +162,7 @@ export class MenuScene extends Phaser.Scene {
       })
       sub.setOrigin(0.5)
 
-      const hint = this.add.text(0, 30, entry.collisions ? 'Chaos' : 'Clean', {
-        fontFamily: 'BubbleDisplay',
-        fontSize: `${Math.round(12 * uiScale)}px`,
-        color: 'rgba(234,246,255,0.5)'
-      })
-      hint.setOrigin(0.5)
-
-      card.add([label, sub, hint])
+      card.add([label, sub])
 
       const sheen = card.getData('sheen') as Phaser.GameObjects.Image
       sheen.setAlpha(0.08)
