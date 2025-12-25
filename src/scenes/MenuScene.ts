@@ -3,6 +3,7 @@ import { DIFFICULTY, type DifficultyId } from '../config/difficulty'
 import { createButton } from '../ui/components/UiButton'
 import { createGlassPanel } from '../ui/components/GlassPanel'
 import { loadSettings, saveSettings } from '../systems/SettingsStore'
+import { getBestScore } from '../systems/BestScoreStore'
 import { createUnderwaterBackground, type UnderwaterBackground } from '../ui/fx/UnderwaterBackground'
 
 type BackBubble = {
@@ -155,14 +156,23 @@ export class MenuScene extends Phaser.Scene {
       label.setOrigin(0.5)
       label.setShadow(0, 4, 'rgba(0,0,0,0.35)', 10, false, true)
 
-      const sub = this.add.text(0, 10, entry.phraseMode ? 'Phrases' : 'Words', {
+      const sub = this.add.text(0, 6, entry.phraseMode ? 'Phrases' : 'Words', {
         fontFamily: 'BubbleDisplay',
         fontSize: `${Math.round(13 * uiScale)}px`,
         color: 'rgba(234,246,255,0.62)'
       })
       sub.setOrigin(0.5)
 
-      card.add([label, sub])
+      const best = getBestScore(entry.id)
+      const bestText = best > 0 ? best.toLocaleString() : '0'
+      const bestLabel = this.add.text(0, 24, `Best: ${bestText}`, {
+        fontFamily: 'BubbleDisplay',
+        fontSize: `${Math.round(12 * uiScale)}px`,
+        color: 'rgba(234,246,255,0.55)'
+      })
+      bestLabel.setOrigin(0.5)
+
+      card.add([label, sub, bestLabel])
 
       const sheen = card.getData('sheen') as Phaser.GameObjects.Image
       sheen.setAlpha(0.08)

@@ -7,7 +7,6 @@ import { createUnderwaterBackground, type UnderwaterBackground } from '../ui/fx/
 export class SettingsScene extends Phaser.Scene {
   private settings!: Settings
   private languageText!: Phaser.GameObjects.Text
-  private accentText!: Phaser.GameObjects.Text
   private volumeText!: Phaser.GameObjects.Text
   private backdropFx?: UnderwaterBackground
 
@@ -75,20 +74,8 @@ export class SettingsScene extends Phaser.Scene {
       .setDepth(10)
       .setShadow(0, 6, 'rgba(0,0,0,0.28)', 12, false, true)
 
-    this.accentText = this.add
-      .text(textX, Math.round(268 * uiScale), '', {
-        fontFamily: 'BubbleDisplay',
-        fontSize: `${Math.round(22 * uiScale)}px`,
-        color: '#eaf6ff',
-        align: 'left',
-        wordWrap: { width: textWrapWidth, useAdvancedWrap: true }
-      })
-      .setOrigin(0, 0.5)
-      .setDepth(10)
-      .setShadow(0, 6, 'rgba(0,0,0,0.28)', 12, false, true)
-
     this.volumeText = this.add
-      .text(textX, Math.round(332 * uiScale), '', {
+      .text(textX, Math.round(268 * uiScale), '', {
         fontFamily: 'BubbleDisplay',
         fontSize: `${Math.round(22 * uiScale)}px`,
         color: '#eaf6ff',
@@ -105,19 +92,13 @@ export class SettingsScene extends Phaser.Scene {
       this.pulse(this.languageText)
     }, { width: buttonWidth, height: buttonHeight, depth: 9, accent: 0xffcf66 })
 
-    const accentsButton = createButton(this, centerX - buttonOffsetX, Math.round(268 * uiScale), 'Accents', () => {
-      this.settings.accentInsensitive = !this.settings.accentInsensitive
-      this.refresh()
-      this.pulse(this.accentText)
-    }, { width: buttonWidth, height: buttonHeight, depth: 9, accent: 0xffcf66 })
-
-    const volumeDown = createButton(this, centerX - buttonOffsetX, Math.round(332 * uiScale), 'Volume -', () => {
+    const volumeDown = createButton(this, centerX - buttonOffsetX, Math.round(268 * uiScale), 'Volume -', () => {
       this.settings.volume = Math.max(0, Math.round((this.settings.volume - 0.1) * 10) / 10)
       this.refresh()
       this.pulse(this.volumeText)
     }, { width: buttonWidth, height: buttonHeight, depth: 9, accent: 0xffcf66 })
 
-    const volumeUp = createButton(this, centerX + buttonOffsetX, Math.round(332 * uiScale), 'Volume +', () => {
+    const volumeUp = createButton(this, centerX + buttonOffsetX, Math.round(268 * uiScale), 'Volume +', () => {
       this.settings.volume = Math.min(1, Math.round((this.settings.volume + 0.1) * 10) / 10)
       this.refresh()
       this.pulse(this.volumeText)
@@ -129,7 +110,6 @@ export class SettingsScene extends Phaser.Scene {
       transitioning = true
       backButton.disableInteractive()
       languageButton.disableInteractive()
-      accentsButton.disableInteractive()
       volumeDown.disableInteractive()
       volumeUp.disableInteractive()
 
@@ -163,9 +143,6 @@ export class SettingsScene extends Phaser.Scene {
   private refresh() {
     saveSettings(this.settings)
     this.languageText.setText(`Language: ${this.settings.language === 'en' ? 'English' : 'Français'}`)
-    this.accentText.setText(
-      `Accent-insensitive input: ${this.settings.accentInsensitive ? 'On' : 'Off'}`
-    )
     this.volumeText.setText(`Volume: ${Math.round(this.settings.volume * 100)}%`)
   }
 

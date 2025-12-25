@@ -4,6 +4,7 @@ import { createButton } from '../ui/components/UiButton'
 import { createGlassPanel } from '../ui/components/GlassPanel'
 import { createUnderwaterBackground, type UnderwaterBackground } from '../ui/fx/UnderwaterBackground'
 import { loadSettings } from '../systems/SettingsStore'
+import { recordBestScore } from '../systems/BestScoreStore'
 
 type ResultData = {
   score: number
@@ -92,6 +93,7 @@ export class ResultScene extends Phaser.Scene {
     let transitioning = false
     const buttonWidth = Math.min(Math.round(320 * uiScale), this.scale.width - 80)
     const resolvedDifficulty = resolved.difficultyId ?? loadSettings().difficulty ?? 'level1'
+    recordBestScore(resolvedDifficulty, resolved.score)
 
     let playAgainButton: Phaser.GameObjects.Container | undefined
     let backButton: Phaser.GameObjects.Container | undefined
