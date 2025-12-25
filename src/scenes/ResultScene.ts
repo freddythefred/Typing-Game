@@ -4,7 +4,7 @@ import { createButton } from '../ui/components/UiButton'
 import { createGlassPanel } from '../ui/components/GlassPanel'
 import { createUnderwaterBackground, type UnderwaterBackground } from '../ui/fx/UnderwaterBackground'
 import { loadSettings } from '../systems/SettingsStore'
-import { recordBestScore } from '../systems/BestScoreStore'
+import { getBestScore, recordBestScore } from '../systems/BestScoreStore'
 
 type ResultData = {
   score: number
@@ -39,6 +39,11 @@ export class ResultScene extends Phaser.Scene {
     this.cameras.main.fadeIn(520, 4, 10, 18)
     const uiScale = Phaser.Math.Clamp(Math.min(this.scale.width / 1280, this.scale.height / 720), 0.82, 1.15)
     const centerX = this.scale.width / 2
+    const resolvedDifficulty = resolved.difficultyId ?? loadSettings().difficulty ?? 'level1'
+    const scoreValue = Number.isFinite(resolved.score) ? Math.max(0, Math.floor(resolved.score)) : 0
+    const previousBest = getBestScore(resolvedDifficulty)
+    const isNewBest = scoreValue > previousBest
+    const bestScore = recordBestScore(resolvedDifficulty, scoreValue)
 
     this.backdropFx?.destroy()
     this.backdropFx = createUnderwaterBackground(this, {
@@ -70,11 +75,11 @@ export class ResultScene extends Phaser.Scene {
       .setShadow(0, 12, 'rgba(0,0,0,0.35)', 22, true, true)
 
     const stats = [
-      `Score: ${resolved.score}`,
+      `Score: ${scoreValue.toLocaleString()}`,
+      `Best Score: ${bestScore.toLocaleString()}${isNewBest ? ' (NEW!)' : ''}`,
       `Accuracy: ${(resolved.accuracy * 100).toFixed(0)}%`,
       `Longest Streak: ${resolved.longestCombo}`,
       `Bubbles Popped: ${resolved.popped}`,
-      `Bubbles Missed: ${resolved.missed}`,
       `Chars/sec: ${resolved.cps.toFixed(1)}`
     ]
 
@@ -92,8 +97,6 @@ export class ResultScene extends Phaser.Scene {
 
     let transitioning = false
     const buttonWidth = Math.min(Math.round(320 * uiScale), this.scale.width - 80)
-    const resolvedDifficulty = resolved.difficultyId ?? loadSettings().difficulty ?? 'level1'
-    recordBestScore(resolvedDifficulty, resolved.score)
 
     let playAgainButton: Phaser.GameObjects.Container | undefined
     let backButton: Phaser.GameObjects.Container | undefined
