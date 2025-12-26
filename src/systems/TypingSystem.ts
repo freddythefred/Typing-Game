@@ -20,6 +20,7 @@ export class TypingSystem {
   private activeTarget: BubbleItem | null = null
   private accentInsensitive = false
   private stats: TypingStats = { totalKeys: 0, correctKeys: 0 }
+  private pendingDeadApostrophe = false
 
   constructor(scene: Phaser.Scene, bubbleManager: BubbleManager, callbacks: TypingCallbacks) {
     this.scene = scene
@@ -67,16 +68,33 @@ export class TypingSystem {
       this.activeTarget = null
     }
 
+    if (event.key === 'Dead' && event.code === 'Quote') {
+      // Dead-key layouts (e.g. US-International): Quote is emitted as "Dead".
+      // Users can usually type a literal apostrophe by pressing Quote then Space.
+      this.pendingDeadApostrophe = true
+      return
+    }
+
     if (event.key === 'Backspace') {
       this.buffer = this.buffer.slice(0, -1)
       this.updateTarget()
       return
     }
 
-    if (event.key.length !== 1) return
+    let key = event.key
+
+    if (this.pendingDeadApostrophe) {
+      this.pendingDeadApostrophe = false
+      if (key === ' ') {
+        key = "'"
+      }
+    }
+
+    if (key.length !== 1) return
     this.stats.totalKeys += 1
 
-    this.buffer += event.key
+    if (key === '’') key = "'"
+    this.buffer += key
     const normalizedBuffer = this.normalize(this.buffer)
 
     const exactMatch = this.pickExactMatch(normalizedBuffer)
@@ -190,7 +208,7 @@ export class TypingSystem {
   }
 
   private normalize(text: string) {
-    const lowered = text.toLowerCase()
+    const lowered = text.toLowerCase().replace(/[’‘`´]/g, "'").replace(/\s+/g, ' ')
     if (!this.accentInsensitive) return lowered
     return lowered.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   }

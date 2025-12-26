@@ -131,19 +131,30 @@ function bucketWords(words, language) {
 }
 
 function sanitizePhrase(input, language) {
-  const normalized = input.toLowerCase().normalize('NFC')
+  const normalized = input
+    .toLowerCase()
+    .normalize('NFC')
+    // Normalize typographic apostrophes to ASCII for consistent typing.
+    .replace(/[’‘`´]/g, "'")
   const cleaned =
     language === 'fr'
       ? normalized
-          .replace(/[^\p{L} ]+/gu, ' ')
+          // Keep apostrophes inside words ("c'est", "j'aurai").
+          .replace(/[^\p{L}' ]+/gu, ' ')
           .replace(/\s+/g, ' ')
           .trim()
       : normalized
-          .replace(/[^a-z ]+/g, ' ')
+          .replace(/[^a-z' ]+/g, ' ')
           .replace(/\s+/g, ' ')
           .trim()
 
+  // Remove spaces around apostrophes (common after punctuation stripping).
   return cleaned
+    .replace(/\s*'\s*/g, "'")
+    .replace(/'+/g, "'")
+    .replace(/^'+|'+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 function wordCount(phrase) {
@@ -221,8 +232,11 @@ function generatePhrases(language) {
     if (isNegativePhrase(phrase, language)) return
     const parts = phrase.split(' ').filter(Boolean)
     if (parts.length === 0) return
-    if (parts.some((w) => !isGoodWord(w, language))) return
-    if (parts.some((w) => (language === 'fr' ? BANNED_FR.has(w) : BANNED_EN.has(w)))) return
+
+    // Validate by treating apostrophes as word separators (j'aurai -> j + aurai).
+    const validationParts = phrase.replace(/'/g, ' ').split(' ').filter(Boolean)
+    if (validationParts.some((w) => !isGoodWord(w, language))) return
+    if (validationParts.some((w) => (language === 'fr' ? BANNED_FR.has(w) : BANNED_EN.has(w)))) return
     phrases.add(phrase)
   }
 
@@ -250,6 +264,16 @@ function generatePhrases(language) {
       'nice work',
       'excellent work',
       'keep it up',
+      'i will try',
+      'we will try',
+      'we will eat',
+      'we will meet',
+      'we will talk',
+      'i will call',
+      'i will write',
+      'i will read',
+      'i will come',
+      'i will go',
       'i am happy',
       'i am excited',
       'i am calm',
@@ -416,7 +440,38 @@ function generatePhrases(language) {
     const dayAdjectives = ['good', 'great', 'wonderful', 'amazing', 'beautiful', 'fantastic', 'excellent', 'awesome']
     const timeAdjectives = ['good', 'great', 'wonderful', 'amazing', 'excellent', 'fantastic']
 
-    const templates = [
+    const neutralVerbs = [
+      'eat',
+      'meet',
+      'talk',
+      'walk',
+      'work',
+      'read',
+      'write',
+      'play',
+      'wait',
+      'help',
+      'start',
+      'learn',
+      'try',
+      'call',
+      'go',
+      'come'
+    ]
+
+    const neutralTemplates = [
+      () => `i will ${pick(neutralVerbs)}`,
+      () => `we will ${pick(neutralVerbs)}`,
+      () => `we can ${pick(neutralVerbs)}`,
+      () => `i can ${pick(neutralVerbs)}`,
+      () => `i will be there`,
+      () => `we are here`,
+      () => `it is okay`,
+      () => `it is simple`,
+      () => `it is fine`
+    ]
+
+    const positiveTemplates = [
       () => `i am ${pick(positivePersonAdjectives)}`,
       () => `i feel ${pick(positivePersonAdjectives)}`,
       () => `i am very ${pick(positivePersonAdjectives)}`,
@@ -446,6 +501,8 @@ function generatePhrases(language) {
       () => `you did great`
     ]
 
+    const templates = [...neutralTemplates, ...neutralTemplates, ...positiveTemplates]
+
     let attempts = 0
     const maxAttempts = PHRASE_COUNT * 800
     while (phrases.size < PHRASE_COUNT && attempts < maxAttempts) {
@@ -467,7 +524,7 @@ function generatePhrases(language) {
       'à tout de suite',
       'tout de suite',
       'bien sûr',
-      'd accord',
+      "d'accord",
       'excuse moi',
       'je suis prêt',
       'je suis occupé',
@@ -479,18 +536,18 @@ function generatePhrases(language) {
       'ça va',
       'comment ça va',
       'tu as raison',
-      'c est bon',
-      'c est vrai',
-      'c est fini',
-      'c est ici',
-      'c est parti',
-      'c est parfait',
-      'c est facile',
-      'c est possible',
-      'c est important',
-      'c est excellent',
-      'c est génial',
-      'c est super',
+      "c'est bon",
+      "c'est vrai",
+      "c'est fini",
+      "c'est ici",
+      "c'est parti",
+      "c'est parfait",
+      "c'est facile",
+      "c'est possible",
+      "c'est important",
+      "c'est excellent",
+      "c'est génial",
+      "c'est super",
       'on y va',
       'aide moi',
       'écoute moi',
@@ -499,46 +556,149 @@ function generatePhrases(language) {
       'je peux aider',
       'je peux le faire',
       'on peut y aller',
-      'on va gagner',
-      'on va réussir',
-      'tout va bien'
+      'on va commencer',
+      'on va continuer',
+      'tout va bien',
+      "j'aurai essayé",
+      "je t'écoute",
+      "je m'en vais",
+      'on va manger',
+      'on va partir',
+      'on va parler',
+      'on se retrouve',
+      'je vais rentrer',
+      'je vais cuisiner',
+      'je vais écrire',
+      'je vais lire'
     ])
 
-    const jeSuis = [
-      'prêt',
-      'occupé',
-      'libre',
-      'calme',
-      'heureux',
-      'content',
-      'surpris',
-      'motivé',
-      'confiant',
-      'ravi',
-      'en avance',
-      'en route',
-      'en forme',
-      'de retour',
-      'fort'
+    // Common, grammatically correct short present-tense phrases (2-3 words).
+    addAll([
+      'je mange',
+      'on mange',
+      'je pars',
+      'on part',
+      'je rentre',
+      'on rentre',
+      'je sors',
+      'on sort',
+      "j'arrive",
+      'on arrive',
+      'je lis',
+      'on lit',
+      "j'écris",
+      'on écrit',
+      "j'écoute",
+      'on écoute',
+      'je regarde',
+      'on regarde',
+      'je parle',
+      'on parle',
+      'je marche',
+      'on marche',
+      'je continue',
+      'on continue',
+      'je commence',
+      'on commence',
+      'je finis',
+      'on finit',
+      "j'essaie",
+      'on essaie',
+      "j'apprends",
+      'on apprend',
+      'je joue',
+      'on joue',
+      "j'attends",
+      'on attend',
+      'je reviens',
+      'on revient',
+      'je reste',
+      'on reste',
+      'je retourne',
+      'on retourne',
+      'je viens',
+      'on vient',
+      'je travaille',
+      'on travaille',
+      'je suis prêt',
+      'je suis calme',
+      'je suis là',
+      'je suis ici',
+      "c'est ok",
+      "c'est simple",
+      "c'est normal",
+      'tout est clair',
+      'tout est ok'
+    ])
+
+    const baseJe = [
+      'je mange',
+      'je pars',
+      'je rentre',
+      'je sors',
+      "j'arrive",
+      'je lis',
+      "j'écris",
+      "j'écoute",
+      'je regarde',
+      'je parle',
+      'je marche',
+      'je continue',
+      'je commence',
+      'je finis',
+      "j'essaie",
+      "j'apprends",
+      'je joue',
+      "j'attends",
+      'je reviens',
+      'je reste',
+      'je retourne',
+      'je viens',
+      'je travaille'
     ]
+    const baseOn = [
+      'on mange',
+      'on part',
+      'on rentre',
+      'on sort',
+      'on arrive',
+      'on lit',
+      'on écrit',
+      'on écoute',
+      'on regarde',
+      'on parle',
+      'on marche',
+      'on continue',
+      'on commence',
+      'on finit',
+      'on essaie',
+      'on apprend',
+      'on joue',
+      'on attend',
+      'on revient',
+      'on reste',
+      'on retourne',
+      'on vient',
+      'on travaille'
+    ]
+    const tails = ['ici', 'là', 'demain', 'maintenant']
+    const tailPairs = ['ce soir']
+    baseJe.forEach((p) => {
+      tails.forEach((t) => tryAdd(`${p} ${t}`))
+      tailPairs.forEach((t) => tryAdd(`${p} ${t}`))
+    })
+    baseOn.forEach((p) => {
+      tails.forEach((t) => tryAdd(`${p} ${t}`))
+      tailPairs.forEach((t) => tryAdd(`${p} ${t}`))
+    })
+
+    const jeSuis = ['prêt', 'occupé', 'libre', 'calme', 'surpris', 'curieux', 'patient', 'concentré', 'en avance', 'en route', 'de retour']
     jeSuis.forEach((adj) => tryAdd(`je suis ${adj}`))
 
-    const jePeux = [
-      'aider',
-      'réussir',
-      'gagner',
-      'apprendre',
-      'commencer',
-      'avancer',
-      'progresser',
-      'continuer',
-      'essayer',
-      'sourire',
-      'jouer'
-    ]
+    const jePeux = ['aider', 'apprendre', 'commencer', 'avancer', 'progresser', 'continuer', 'essayer', 'jouer', 'parler', 'lire', 'écrire', 'écouter']
     jePeux.forEach((v) => tryAdd(`je peux ${v}`))
 
-    const jeMeSens = ['bien', 'mieux', 'super', 'prêt', 'calme', 'heureux', 'content', 'motivé', 'confiant', 'ravi']
+    const jeMeSens = ['prêt', 'calme', 'concentré', 'ok']
     jeMeSens.forEach((adj) => tryAdd(`je me sens ${adj}`))
 
     const verbInf = [
@@ -549,27 +709,10 @@ function generatePhrases(language) {
     ]
     verbInf.forEach((v) => tryAdd(`on va ${v}`))
 
-    const cEst = [
-      'bon',
-      'vrai',
-      'fini',
-      'simple',
-      'normal',
-      'important',
-      'possible',
-      'parfait',
-      'clair',
-      'facile',
-      'incroyable',
-      'super',
-      'génial',
-      'excellent',
-      'magnifique',
-      'formidable'
-    ]
-    cEst.forEach((w) => tryAdd(`c est ${w}`))
+    const cEst = ['bon', 'vrai', 'fini', 'simple', 'normal', 'important', 'possible', 'clair', 'utile', 'ok']
+    cEst.forEach((w) => tryAdd(`c'est ${w}`))
 
-    const tuEs = ['prêt', 'là', 'ici', 'sûr', 'calme', 'content', 'heureux', 'fort']
+    const tuEs = ['prêt', 'là', 'ici', 'sûr', 'calme', 'curieux', 'patient']
     tuEs.forEach((w) => tryAdd(`tu es ${w}`))
 
     const onSeVoit = ['demain', 'bientôt', 'ce soir']
@@ -587,7 +730,7 @@ function generatePhrases(language) {
       'très bien',
       'tout va bien',
       'ça marche',
-      'c est ok',
+      "c'est ok",
       'je comprends',
       'je sais',
       'je suis sûr',
@@ -609,123 +752,120 @@ function generatePhrases(language) {
       'excellent travail'
     ])
 
-    const positivePersonAdjectives = [
-      'heureux',
-      'content',
-      'calme',
-      'prêt',
-      'fort',
-      'motivé',
-      'confiant',
-      'ravi',
-      'serein',
-      'optimiste',
-      'fier',
-      'joyeux',
-      'détendu',
-      'inspiré',
-      'énergique',
-      'souriant',
-      'créatif',
-      'gentil',
-      'sympa',
-      'patient',
-      'curieux'
-    ]
+    const positivePersonAdjectives = ['calme', 'prêt', 'patient', 'curieux', 'concentré', 'sympa', 'gentil']
 
-    const positiveFeelingWords = [
-      'bien',
-      'super',
-      'heureux',
-      'content',
-      'calme',
-      'motivé',
-      'confiant',
-      'ravi',
-      'serein',
-      'optimiste',
-      'détendu',
-      'joyeux'
-    ]
+    const positiveFeelingWords = ['calme', 'prêt', 'ok', 'concentré']
 
-    const positiveThingAdjectives = [
-      'bien',
-      'super',
-      'génial',
-      'excellent',
-      'parfait',
-      'magnifique',
-      'formidable',
-      'incroyable',
-      'fantastique',
-      'splendide',
-      'brillant',
-      'merveilleux',
-      'superbe',
-      'top',
-      'cool',
-      'sympa',
-      'chouette',
-      'nickel',
-      'clair',
-      'simple',
-      'positif',
-      'utile'
-    ]
+    const positiveThingAdjectives = ['bon', 'simple', 'clair', 'utile', 'ok', 'cool', 'sympa']
 
-    const positiveStatusWords = ['bien', 'super', 'génial', 'nickel', 'parfait']
+    const positiveStatusWords = ['bien', 'ok', 'clair']
 
-    const positiveVerbs = [
-      'gagner',
-      'réussir',
-      'commencer',
-      'avancer',
-      'progresser',
+    const positiveVerbs = ['commencer', 'avancer', 'progresser', 'continuer', 'essayer', 'apprendre', 'jouer', 'aider', 'parler', 'lire', 'écrire', 'écouter']
+
+    const neutralVerbs = [
+      'manger',
+      'rentrer',
+      'sortir',
+      'partir',
+      'arriver',
+      'lire',
+      'écrire',
+      'écouter',
+      'regarder',
+      'parler',
+      'marcher',
       'continuer',
+      'commencer',
+      'finir',
       'essayer',
+      'réfléchir',
       'apprendre',
       'jouer',
-      'sourire',
-      'aider',
-      'grandir',
-      'créer',
-      'partager',
-      'briller',
-      's améliorer',
-      's entraîner',
-      'se lancer'
+      'attendre',
+      'revenir',
+      'rester',
+      'retourner',
+      'venir',
+      'aller',
+      'travailler'
+    ]
+
+    const canVerbs = [
+      'manger',
+      'rentrer',
+      'sortir',
+      'partir',
+      'arriver',
+      'lire',
+      'écrire',
+      'parler',
+      'marcher',
+      'continuer',
+      'commencer',
+      'finir',
+      'essayer',
+      'réfléchir',
+      'apprendre',
+      'jouer',
+      'attendre',
+      'revenir',
+      'rester',
+      'retourner',
+      'venir',
+      'aller',
+      'travailler'
+    ]
+
+    const neutralTemplates = [
+      () => `on va ${pick(neutralVerbs)}`,
+      () => `je vais ${pick(neutralVerbs)}`,
+      () => `on peut ${pick(canVerbs)}`,
+      () => `je peux ${pick(canVerbs)}`,
+      () => `on se retrouve`,
+      () => `on est ici`,
+      () => `je reviens bientôt`,
+      () => `je suis là`,
+      () => `je suis ici`,
+      () => `c'est simple`,
+      () => `c'est normal`,
+      () => `c'est ok`,
+      () => `tout de suite`,
+      () => `on y va`,
+      () => `je sais`,
+      () => `je comprends`,
+      () => `je vais voir`,
+      () => `j'aurai essayé`,
+      () => `je t'écoute`
     ]
 
     const templates = [
       () => `je vais bien`,
-      () => `ça va très bien`,
       () => `je suis ${pick(positivePersonAdjectives)}`,
-      () => `je suis très ${pick(positivePersonAdjectives)}`,
       () => `je me sens ${pick(positiveFeelingWords)}`,
-      () => `c est ${pick(positiveThingAdjectives)}`,
-      () => `c est très ${pick(positiveThingAdjectives)}`,
-      () => `c est vraiment ${pick(positiveThingAdjectives)}`,
+      () => `c'est ${pick(positiveThingAdjectives)}`,
       () => `tout va ${pick(positiveStatusWords)}`,
       () => `tout est ${pick(positiveThingAdjectives)}`,
-      () => `tout est très ${pick(positiveThingAdjectives)}`,
       () => `on va ${pick(positiveVerbs)}`,
       () => `on peut ${pick(positiveVerbs)}`,
-      () => `on va très bien`,
       () => `tu es ${pick(positivePersonAdjectives)}`,
-      () => `tu es très ${pick(positivePersonAdjectives)}`,
-      () => `tu vas réussir`,
-      () => `tu peux réussir`,
-      () => `tu peux le faire`,
       () => `bien joué`,
       () => `bravo`,
       () => `excellent travail`
+    ]
+
+    const allTemplates = [
+      ...neutralTemplates,
+      ...neutralTemplates,
+      ...neutralTemplates,
+      ...neutralTemplates,
+      ...templates
     ]
 
     let attempts = 0
     const maxAttempts = PHRASE_COUNT * 900
     while (phrases.size < PHRASE_COUNT && attempts < maxAttempts) {
       attempts += 1
-      tryAdd(pick(templates)())
+      tryAdd(pick(allTemplates)())
     }
   }
 

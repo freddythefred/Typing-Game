@@ -874,7 +874,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private normalize(text: string, accentInsensitive: boolean) {
-    const lowered = text.toLowerCase()
+    const lowered = text.toLowerCase().replace(/[’‘`´]/g, "'").replace(/\s+/g, ' ')
     if (!accentInsensitive) return lowered
     return lowered.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   }
