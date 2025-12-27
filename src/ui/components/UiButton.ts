@@ -24,8 +24,6 @@ export function createButton(
   const base = panel.getData('base') as Phaser.GameObjects.Image
   const border = panel.getData('border') as Phaser.GameObjects.Graphics
   const inner = panel.getData('inner') as Phaser.GameObjects.Graphics
-  const sheen = panel.getData('sheen') as Phaser.GameObjects.Image
-  const mask = panel.getData('mask') as Phaser.Display.Masks.GeometryMask
 
   const glow = scene.add
     .image(0, 0, 'light')
@@ -65,7 +63,6 @@ export function createButton(
   panel.on('pointerover', () => {
     scene.tweens.add({ targets: panel, scale: 1.045, duration: 140, ease: 'Sine.easeOut' })
     scene.tweens.add({ targets: glow, alpha: 0.17, duration: 160, ease: 'Sine.easeOut' })
-    scene.tweens.add({ targets: sheen, alpha: 0.14, duration: 160, ease: 'Sine.easeOut' })
     scene.tweens.add({ targets: base, alpha: 1, duration: 160, ease: 'Sine.easeOut' })
     setBorder(0.22)
     setInner(0.32)
@@ -74,7 +71,6 @@ export function createButton(
   panel.on('pointerout', () => {
     scene.tweens.add({ targets: panel, scale: 1, duration: 180, ease: 'Sine.easeOut' })
     scene.tweens.add({ targets: glow, alpha: 0, duration: 220, ease: 'Sine.easeOut' })
-    scene.tweens.add({ targets: sheen, alpha: 0.1, duration: 220, ease: 'Sine.easeOut' })
     setBorder(0.12)
     setInner(0.16)
   })
@@ -90,7 +86,6 @@ export function createButton(
       .setTint(accent)
       .setAlpha(0.2)
     ripple.setScale(0.05)
-    ripple.setMask(mask)
     panel.add(ripple)
 
     scene.tweens.add({

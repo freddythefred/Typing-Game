@@ -42,7 +42,7 @@ export class MenuScene extends Phaser.Scene {
       depth: -12,
       withDust: true,
       withPointerLight: true,
-      withShafts: true
+      withShafts: false
     })
 
     this.createBackgroundBubbles()
@@ -174,22 +174,15 @@ export class MenuScene extends Phaser.Scene {
 
       card.add([label, sub, bestLabel])
 
-      const sheen = card.getData('sheen') as Phaser.GameObjects.Image
-      sheen.setAlpha(0.08)
-
       card.on('pointerover', () => {
         this.tweens.add({ targets: card, scale: 1.05, duration: 150, ease: 'Sine.easeOut' })
-        this.tweens.add({ targets: sheen, alpha: 0.13, duration: 150, ease: 'Sine.easeOut' })
       })
       card.on('pointerout', () => {
         this.tweens.add({ targets: card, scale: 1, duration: 180, ease: 'Sine.easeOut' })
-        this.tweens.add({ targets: sheen, alpha: 0.08, duration: 220, ease: 'Sine.easeOut' })
-        sheen.setPosition(0, sheen.y)
       })
       card.on('pointermove', (pointer: Phaser.Input.Pointer) => {
         const rx = Phaser.Math.Clamp((pointer.x - card.x) / (cardWidth * 0.5), -1, 1)
         const ry = Phaser.Math.Clamp((pointer.y - card.y) / (cardHeight * 0.5), -1, 1)
-        sheen.setPosition(rx * 10, -cardHeight * 0.55 + ry * 8)
         halo.setPosition(-rx * 4, -ry * 4)
       })
       card.on('pointerup', () => {
@@ -350,7 +343,6 @@ export class MenuScene extends Phaser.Scene {
       const border = card.getData('border') as Phaser.GameObjects.Graphics
       const inner = card.getData('inner') as Phaser.GameObjects.Graphics
       const halo = card.getData('halo') as Phaser.GameObjects.Image
-      const sheen = card.getData('sheen') as Phaser.GameObjects.Image
       const width = card.width || 176
       const height = card.height || 84
       const radius = 22
@@ -370,7 +362,6 @@ export class MenuScene extends Phaser.Scene {
       )
 
       halo.setAlpha(isActive ? 0.55 : 0)
-      sheen.setAlpha(isActive ? 0.14 : 0.08)
       this.tweens.add({
         targets: card,
         scale: isActive ? 1.065 : 1,

@@ -228,12 +228,34 @@ export function createNoiseTexture(scene: Phaser.Scene) {
 
   const image = ctx.createImageData(size, size)
   const data = image.data
-  for (let i = 0; i < data.length; i += 4) {
-    const v = Math.floor(Math.random() * 255)
-    data[i] = v
-    data[i + 1] = v
-    data[i + 2] = v
-    data[i + 3] = Math.floor(Math.random() * 55)
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const i = (y * size + x) * 4
+      const v = Math.floor(Math.random() * 255)
+      data[i] = v
+      data[i + 1] = v
+      data[i + 2] = v
+      data[i + 3] = Math.floor(Math.random() * 55)
+    }
+  }
+
+  // Make the texture tileable: match the first/last row and column to avoid seams in TileSprites.
+  const last = size - 1
+  for (let y = 0; y < size; y += 1) {
+    const src = (y * size + 0) * 4
+    const dst = (y * size + last) * 4
+    data[dst] = data[src]
+    data[dst + 1] = data[src + 1]
+    data[dst + 2] = data[src + 2]
+    data[dst + 3] = data[src + 3]
+  }
+  for (let x = 0; x < size; x += 1) {
+    const src = (0 * size + x) * 4
+    const dst = (last * size + x) * 4
+    data[dst] = data[src]
+    data[dst + 1] = data[src + 1]
+    data[dst + 2] = data[src + 2]
+    data[dst + 3] = data[src + 3]
   }
   ctx.putImageData(image, 0, 0)
   canvas.refresh()

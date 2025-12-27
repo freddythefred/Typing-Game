@@ -62,4 +62,10 @@ canvas {
   height: 100%;
   position: relative;
   z-index: 1;
+  outline: none;
+}
+
+canvas:focus,
+canvas:focus-visible {
+  outline: none;
 }

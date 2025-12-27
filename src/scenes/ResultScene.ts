@@ -50,7 +50,7 @@ export class ResultScene extends Phaser.Scene {
       depth: -12,
       withDust: true,
       withPointerLight: true,
-      withShafts: true,
+      withShafts: false,
       accent: 0x66e3ff
     })
 

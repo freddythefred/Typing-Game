@@ -25,7 +25,7 @@ export class SettingsScene extends Phaser.Scene {
       depth: -12,
       withDust: true,
       withPointerLight: true,
-      withShafts: true,
+      withShafts: false,
       accent: 0xffcf66
     })
 

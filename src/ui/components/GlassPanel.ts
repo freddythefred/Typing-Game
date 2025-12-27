@@ -20,7 +20,6 @@ export function createGlassPanel(
   const alpha = options?.alpha ?? 1
   const accent = options?.accent ?? 0x66e3ff
   const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false
-  const animateSheen = options?.animateSheen ?? !reduceMotion
   const float = Boolean(options?.float && !reduceMotion)
 
   const key = `glass-${Math.round(width)}x${Math.round(height)}-r${Math.round(radius)}`
@@ -113,23 +112,7 @@ export function createGlassPanel(
     height - 8,
     Math.max(0, radius - 4)
   )
-
-  const maskShape = scene.add.graphics()
-  maskShape.setVisible(false)
-  maskShape.fillStyle(0xffffff, 1)
-  maskShape.fillRoundedRect(-width / 2, -height / 2, width, height, radius)
-  const mask = maskShape.createGeometryMask()
-
-  const sheen = scene.add
-    .image(-width * 0.7, -height * 0.55, 'sheen')
-    .setOrigin(0.5)
-    .setAlpha(0.1)
-    .setBlendMode(Phaser.BlendModes.ADD)
-  sheen.setScale((width / 256) * 2.1, (height / 256) * 2.1)
-  sheen.setRotation(-0.15)
-  sheen.setMask(mask)
-
-  container.add([shadow, base, border, inner, maskShape, sheen])
+  container.add([shadow, base, border, inner])
 
   if (float) {
     scene.tweens.add({
@@ -142,27 +125,10 @@ export function createGlassPanel(
     })
   }
 
-  if (animateSheen) {
-    scene.tweens.add({
-      targets: sheen,
-      x: width * 0.65,
-      duration: float ? 3200 : 5200,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-      delay: float ? 0 : 500
-    })
-  } else {
-    sheen.setX(0)
-  }
-
   container.setDataEnabled()
   container.setData('base', base)
   container.setData('border', border)
   container.setData('inner', inner)
-  container.setData('sheen', sheen)
-  container.setData('mask', mask)
-  container.setData('maskShape', maskShape)
 
   return container
 }

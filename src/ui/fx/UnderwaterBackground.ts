@@ -25,20 +25,26 @@ export function createUnderwaterBackground(
 
   const backdrop = scene.add.graphics().setDepth(depth)
   const noise = scene.add
-    .tileSprite(0, 0, scene.scale.width, scene.scale.height, 'noise')
-    .setOrigin(0, 0)
+    .image(scene.scale.width * 0.5, scene.scale.height * 0.5, 'noise')
     .setDepth(depth + 1)
-    .setAlpha(0.06)
+    .setAlpha(0.055)
     .setBlendMode(Phaser.BlendModes.OVERLAY)
 
   const caustics = scene.add
-    .tileSprite(0, 0, scene.scale.width, scene.scale.height, 'noise')
-    .setOrigin(0, 0)
+    .image(scene.scale.width * 0.5, scene.scale.height * 0.5, 'noise')
     .setDepth(depth + 2)
-    .setAlpha(0.06)
-    .setScale(1.55)
+    .setAlpha(0.05)
     .setTint(accent)
     .setBlendMode(Phaser.BlendModes.ADD)
+
+  const resizeNoise = (width: number, height: number) => {
+    const overscan = 1.3
+    noise.setPosition(width * 0.5, height * 0.5)
+    caustics.setPosition(width * 0.5, height * 0.5)
+    noise.setDisplaySize(width * overscan, height * overscan)
+    caustics.setDisplaySize(width * overscan * 1.1, height * overscan * 1.1)
+  }
+  resizeNoise(scene.scale.width, scene.scale.height)
 
   const shafts: Phaser.GameObjects.Image[] = []
   if (options.withShafts ?? true) {
@@ -114,8 +120,7 @@ export function createUnderwaterBackground(
 
   const resize = (width: number, height: number) => {
     if (destroyed) return
-    noise.setSize(width, height)
-    caustics.setSize(width, height)
+    resizeNoise(width, height)
     dustZone.width = width
     dustZone.height = height + 80
 
@@ -136,11 +141,16 @@ export function createUnderwaterBackground(
     const t = time / 1000
 
     if (!reduceMotion) {
-      noise.tilePositionX += delta * 0.025
-      noise.tilePositionY -= delta * 0.018
-      caustics.tilePositionX -= delta * 0.042
-      caustics.tilePositionY += delta * 0.03
+      noise.setPosition(
+        scene.scale.width * 0.5 + Math.sin(t * 0.22) * 10,
+        scene.scale.height * 0.5 + Math.cos(t * 0.18) * 8
+      )
+      caustics.setPosition(
+        scene.scale.width * 0.5 + Math.sin(t * 0.16) * 14,
+        scene.scale.height * 0.5 + Math.cos(t * 0.2) * 12
+      )
       caustics.rotation = Math.sin(t * 0.08) * 0.012
+      noise.rotation = Math.sin(t * 0.06) * 0.006
       shafts.forEach((shaft, index) => {
         shaft.x += Math.sin(t * 0.12 + index * 2.4) * dt * 6
       })
