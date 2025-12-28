@@ -33,6 +33,6 @@ export class PreloadScene extends Phaser.Scene {
     createVignetteTexture(this)
     createShaftTexture(this)
 
-    this.scene.start('Menu')
+    this.scene.start('ProfileSelect')
   }
 }

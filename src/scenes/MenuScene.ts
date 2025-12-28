@@ -5,6 +5,7 @@ import { createGlassPanel } from '../ui/components/GlassPanel'
 import { loadSettings, saveSettings } from '../systems/SettingsStore'
 import { getBestScore } from '../systems/BestScoreStore'
 import { createUnderwaterBackground, type UnderwaterBackground } from '../ui/fx/UnderwaterBackground'
+import { ensureDefaultProfile, getActiveProfileId } from '../systems/ProfileStore'
 
 type BackBubble = {
   sprite: Phaser.GameObjects.Sprite
@@ -30,6 +31,7 @@ export class MenuScene extends Phaser.Scene {
   create() {
     const settings = loadSettings()
     this.difficultyId = settings.difficulty
+    const activeProfileId = getActiveProfileId() ?? ensureDefaultProfile().id
 
     const uiScale = Phaser.Math.Clamp(Math.min(this.scale.width / 1280, this.scale.height / 720), 0.78, 1.2)
     const centerX = this.scale.width / 2
@@ -163,7 +165,7 @@ export class MenuScene extends Phaser.Scene {
       })
       sub.setOrigin(0.5)
 
-      const best = getBestScore(entry.id)
+      const best = getBestScore(activeProfileId, settings.language, entry.id)
       const bestText = best > 0 ? best.toLocaleString() : '0'
       const bestLabel = this.add.text(0, 24, `Best: ${bestText}`, {
         fontFamily: 'BubbleDisplay',
@@ -210,17 +212,24 @@ export class MenuScene extends Phaser.Scene {
     const buttonWidth = Math.min(Math.round(300 * uiScale), this.scale.width - 80)
     const playHeight = Math.round(60 * uiScale)
     const settingsHeight = Math.round(56 * uiScale)
+    const profileHeight = Math.round(56 * uiScale)
     const panelBottom = panelY + panelHeight / 2
     const buttonsTopGap = Math.round(22 * uiScale)
     const buttonsGap = Math.round(14 * uiScale)
     const playY = Math.round(panelBottom + buttonsTopGap + playHeight / 2)
     const settingsY = Math.round(playY + playHeight / 2 + buttonsGap + settingsHeight / 2)
+    const profileY = Math.round(settingsY + settingsHeight / 2 + buttonsGap + profileHeight / 2)
 
-    const playButton = createButton(this, centerX, playY, 'Play', () => {
+    let playButton: Phaser.GameObjects.Container | undefined
+    let settingsButton: Phaser.GameObjects.Container | undefined
+    let changeProfileButton: Phaser.GameObjects.Container | undefined
+
+    playButton = createButton(this, centerX, playY, 'Play', () => {
       if (transitioning) return
       transitioning = true
-      playButton.disableInteractive()
-      settingsButton.disableInteractive()
+      playButton?.disableInteractive()
+      settingsButton?.disableInteractive()
+      changeProfileButton?.disableInteractive()
 
       const next = { ...settings, difficulty: this.difficultyId }
       saveSettings(next)
@@ -231,22 +240,37 @@ export class MenuScene extends Phaser.Scene {
       })
     }, { width: buttonWidth, height: playHeight, depth: 9 })
 
-    const settingsButton = createButton(this, centerX, settingsY, 'Settings', () => {
+    settingsButton = createButton(this, centerX, settingsY, 'Settings', () => {
       if (transitioning) return
       transitioning = true
-      playButton.disableInteractive()
-      settingsButton.disableInteractive()
+      playButton?.disableInteractive()
+      settingsButton?.disableInteractive()
+      changeProfileButton?.disableInteractive()
       this.cameras.main.fadeOut(240, 4, 10, 18)
       this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
         this.scene.start('Settings')
       })
     }, { width: buttonWidth, height: settingsHeight, depth: 9, accent: 0xffcf66 })
 
-    this.add.text(centerX, this.scale.height - Math.round(40 * uiScale), 'Type fast. Stay afloat.', {
+    changeProfileButton = createButton(this, centerX, profileY, 'Change Profile', () => {
+      if (transitioning) return
+      transitioning = true
+      playButton?.disableInteractive()
+      settingsButton?.disableInteractive()
+      changeProfileButton?.disableInteractive()
+      this.cameras.main.fadeOut(240, 4, 10, 18)
+      this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+        this.scene.start('ProfileSelect')
+      })
+    }, { width: buttonWidth, height: profileHeight, depth: 9 })
+
+    const tagline = this.add.text(centerX, 0, 'Type fast. Stay afloat.', {
       fontFamily: 'BubbleDisplay',
       fontSize: `${Math.round(18 * uiScale)}px`,
       color: 'rgba(234,246,255,0.6)'
-    }).setOrigin(0.5)
+    })
+    tagline.setOrigin(0.5)
+    tagline.setY(this.scale.height - tagline.height / 2 - Math.round(2 * uiScale))
 
     const vignette = this.add
       .image(this.scale.width / 2, this.scale.height / 2, 'vignette')
@@ -264,7 +288,8 @@ export class MenuScene extends Phaser.Scene {
       divider,
       ...cards,
       playButton,
-      settingsButton
+      settingsButton,
+      changeProfileButton
     ].filter(
       Boolean
     ) as Phaser.GameObjects.GameObject[]

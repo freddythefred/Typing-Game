@@ -5,11 +5,12 @@ import { TypingSystem } from '../systems/TypingSystem'
 import { EffectsSystem } from '../systems/EffectsSystem'
 import { AudioSystem } from '../systems/AudioSystem'
 import { loadSettings } from '../systems/SettingsStore'
-import { getBank, pickWord } from '../data/wordBank'
+import { getBank, pickWord, type LanguageId } from '../data/wordBank'
 import { validateWordBank } from '../data/validate'
 import { createButton } from '../ui/components/UiButton'
 import { createGlassPanel } from '../ui/components/GlassPanel'
 import { createUnderwaterBackground, type UnderwaterBackground } from '../ui/fx/UnderwaterBackground'
+import { ensureDefaultProfile, getActiveProfileId } from '../systems/ProfileStore'
 
 type HudRefs = {
   panel: Phaser.GameObjects.Container
@@ -32,6 +33,8 @@ type ResultPayload = {
   missed: number
   cps: number
   difficultyId: DifficultyId
+  language: LanguageId
+  profileId: string
 }
 
 export class GameScene extends Phaser.Scene {
@@ -162,7 +165,7 @@ export class GameScene extends Phaser.Scene {
 
     this.createHud()
     this.markHudDirty(true)
-    this.createBackToMenuButton()
+    this.createEndGameButton()
     this.startTime = this.time.now
 
     this.spawnTimer = this.time.addEvent({
@@ -305,7 +308,9 @@ export class GameScene extends Phaser.Scene {
         popped: this.popped,
         missed: this.missed,
         cps: charsPerSecond,
-        difficultyId: this.difficultyId
+        difficultyId: this.difficultyId,
+        language: this.settings.language,
+        profileId: getActiveProfileId() ?? ensureDefaultProfile().id
       }
 
       this.pendingResult = payload
@@ -318,7 +323,9 @@ export class GameScene extends Phaser.Scene {
         popped: this.popped,
         missed: this.missed,
         cps: 0,
-        difficultyId: this.difficultyId
+        difficultyId: this.difficultyId,
+        language: this.settings.language,
+        profileId: getActiveProfileId() ?? ensureDefaultProfile().id
       }
     }
   }
@@ -580,7 +587,7 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private createBackToMenuButton() {
+  private createEndGameButton() {
     const uiScale = Phaser.Math.Clamp(Math.min(this.scale.width / 1280, this.scale.height / 720), 0.82, 1.15)
     const margin = Math.round(26 * uiScale)
     const width = Math.min(Math.round(260 * uiScale), Math.max(180, this.scale.width - margin * 2))
@@ -591,21 +598,11 @@ export class GameScene extends Phaser.Scene {
 
     let transitioning = false
 
-    const button = createButton(this, x, y, 'Back to Menu', () => {
+    const button = createButton(this, x, y, 'End Game', () => {
       if (transitioning) return
       transitioning = true
       button.disableInteractive()
-
-      let started = false
-      const go = () => {
-        if (started) return
-        started = true
-        this.scene.start('Menu')
-      }
-
-      this.cameras.main.fadeOut(220, 4, 10, 18)
-      this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, go)
-      this.time.delayedCall(260, go)
+      this.requestEndGame()
     }, { width, height, depth: 30 })
 
     button.setDepth(30)

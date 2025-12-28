@@ -5,6 +5,8 @@ import { createGlassPanel } from '../ui/components/GlassPanel'
 import { createUnderwaterBackground, type UnderwaterBackground } from '../ui/fx/UnderwaterBackground'
 import { loadSettings } from '../systems/SettingsStore'
 import { getBestScore, recordBestScore } from '../systems/BestScoreStore'
+import type { LanguageId } from '../data/wordBank'
+import { ensureDefaultProfile, getActiveProfileId } from '../systems/ProfileStore'
 
 type ResultData = {
   score: number
@@ -14,6 +16,8 @@ type ResultData = {
   missed: number
   cps: number
   difficultyId?: DifficultyId
+  language?: LanguageId
+  profileId?: string
 }
 
 export class ResultScene extends Phaser.Scene {
@@ -40,10 +44,12 @@ export class ResultScene extends Phaser.Scene {
     const uiScale = Phaser.Math.Clamp(Math.min(this.scale.width / 1280, this.scale.height / 720), 0.82, 1.15)
     const centerX = this.scale.width / 2
     const resolvedDifficulty = resolved.difficultyId ?? loadSettings().difficulty ?? 'level1'
+    const resolvedLanguage = resolved.language ?? loadSettings().language ?? 'en'
+    const resolvedProfileId = resolved.profileId ?? getActiveProfileId() ?? ensureDefaultProfile().id
     const scoreValue = Number.isFinite(resolved.score) ? Math.max(0, Math.floor(resolved.score)) : 0
-    const previousBest = getBestScore(resolvedDifficulty)
+    const previousBest = getBestScore(resolvedProfileId, resolvedLanguage, resolvedDifficulty)
     const isNewBest = scoreValue > previousBest
-    const bestScore = recordBestScore(resolvedDifficulty, scoreValue)
+    const bestScore = recordBestScore(resolvedProfileId, resolvedLanguage, resolvedDifficulty, scoreValue)
 
     this.backdropFx?.destroy()
     this.backdropFx = createUnderwaterBackground(this, {

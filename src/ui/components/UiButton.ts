@@ -32,6 +32,11 @@ export function createButton(
     .setAlpha(0)
   glow.setScale(Math.max(width, height) / 512)
   panel.addAt(glow, 1)
+  panel.setData('glow', glow)
+  panel.setData('buttonWidth', width)
+  panel.setData('buttonHeight', height)
+  panel.setData('buttonRadius', radius)
+  panel.setData('buttonAccent', accent)
 
   const text = scene.add.text(0, 0, label, {
     fontFamily: 'BubbleDisplay',

@@ -1,6 +1,7 @@
 import Phaser from 'phaser'
 import { BootScene } from '../scenes/BootScene'
 import { PreloadScene } from '../scenes/PreloadScene'
+import { ProfileSelectScene } from '../scenes/ProfileSelectScene'
 import { MenuScene } from '../scenes/MenuScene'
 import { SettingsScene } from '../scenes/SettingsScene'
 import { GameScene } from '../scenes/GameScene'
@@ -28,6 +29,6 @@ export function createGame() {
       pixelArt: false,
       powerPreference: 'high-performance'
     },
-    scene: [BootScene, PreloadScene, MenuScene, SettingsScene, GameScene, ResultScene]
+    scene: [BootScene, PreloadScene, ProfileSelectScene, MenuScene, SettingsScene, GameScene, ResultScene]
   })
 }
