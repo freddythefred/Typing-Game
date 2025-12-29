@@ -11,12 +11,14 @@ import { createButton } from '../ui/components/UiButton'
 import { createGlassPanel } from '../ui/components/GlassPanel'
 import { createUnderwaterBackground, type UnderwaterBackground } from '../ui/fx/UnderwaterBackground'
 import { ensureDefaultProfile, getActiveProfileId } from '../systems/ProfileStore'
+import { getBestScore } from '../systems/BestScoreStore'
 
 type HudRefs = {
   panel: Phaser.GameObjects.Container
   bufferPanel: Phaser.GameObjects.Container
   score: Phaser.GameObjects.Text
   combo: Phaser.GameObjects.Text
+  best: Phaser.GameObjects.Text
   accuracy: Phaser.GameObjects.Text
   lives: Phaser.GameObjects.Text
   buffer: Phaser.GameObjects.Text
@@ -43,6 +45,9 @@ export class GameScene extends Phaser.Scene {
   private effects!: EffectsSystem
   private audio!: AudioSystem
   private difficultyId: DifficultyId = 'level1'
+  private profileId = ''
+  private modeBestScore = 0
+  private lastBestScore = -1
   private backdropFx?: UnderwaterBackground
   private water?: Phaser.GameObjects.TileSprite
   private waterCausticsA?: Phaser.GameObjects.TileSprite
@@ -104,6 +109,9 @@ export class GameScene extends Phaser.Scene {
 
     this.settings = loadSettings()
     this.difficultyId = data.difficulty ?? this.settings.difficulty ?? 'level1'
+    this.profileId = getActiveProfileId() ?? ensureDefaultProfile().id
+    this.modeBestScore = getBestScore(this.profileId, this.settings.language, this.difficultyId)
+    this.lastBestScore = -1
     const config = DIFFICULTY[this.difficultyId]
     this.reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false
     this.waterRedrawAccumulatorMs = 0
@@ -671,6 +679,13 @@ export class GameScene extends Phaser.Scene {
     comboBar.setData('h', barH)
     comboBar.setData('r', Math.round(8 * uiScale))
 
+    const best = this.add.text(-panelWidth / 2 + pad, -panelHeight / 2 + Math.round(72 * uiScale), '', {
+      fontFamily: 'BubbleDisplay',
+      fontSize: `${Math.round(16 * uiScale)}px`,
+      color: 'rgba(234,246,255,0.72)'
+    })
+    best.setOrigin(0, 0)
+
     const accuracy = this.add.text(-panelWidth / 2 + pad, -panelHeight / 2 + Math.round(92 * uiScale), '', {
       fontFamily: 'BubbleDisplay',
       fontSize: `${Math.round(16 * uiScale)}px`,
@@ -678,7 +693,7 @@ export class GameScene extends Phaser.Scene {
     })
     accuracy.setOrigin(0, 0)
 
-    const lives = this.add.text(-panelWidth / 2 + pad, -panelHeight / 2 + Math.round(120 * uiScale), '', {
+    const lives = this.add.text(-panelWidth / 2 + pad, -panelHeight / 2 + Math.round(112 * uiScale), '', {
       fontFamily: 'BubbleDisplay',
       fontSize: `${Math.round(16 * uiScale)}px`,
       color: 'rgba(234,246,255,0.72)'
@@ -703,7 +718,7 @@ export class GameScene extends Phaser.Scene {
       lifeBubbles.push(icon)
     }
 
-    panel.add([scoreLabel, score, comboLabel, combo, comboBar, accuracy, lives, ...lifeBubbles])
+    panel.add([scoreLabel, score, comboLabel, combo, comboBar, best, accuracy, lives, ...lifeBubbles])
 
     const bufferWidth = Math.min(Math.round(680 * uiScale), this.scale.width - Math.round(80 * uiScale))
     const bufferHeight = Math.round(76 * uiScale)
@@ -736,6 +751,7 @@ export class GameScene extends Phaser.Scene {
       bufferPanel,
       score,
       combo,
+      best,
       accuracy,
       lives,
       buffer,
@@ -787,6 +803,13 @@ export class GameScene extends Phaser.Scene {
 
     const scoreText = `${this.score}`
     if (this.hud.score.text !== scoreText) this.hud.score.setText(scoreText)
+
+    const bestScore = Math.max(this.modeBestScore, this.score)
+    if (bestScore !== this.lastBestScore) {
+      const bestText = `Best ${bestScore.toLocaleString()}`
+      if (this.hud.best.text !== bestText) this.hud.best.setText(bestText)
+      this.lastBestScore = bestScore
+    }
 
     const comboText = `${this.combo}`
     if (this.hud.combo.text !== comboText) this.hud.combo.setText(comboText)

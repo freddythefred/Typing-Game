@@ -72,6 +72,33 @@ export class MenuScene extends Phaser.Scene {
     })
     panel.setDepth(6)
 
+    const applyFlagSizingAndCrop = (flag: Phaser.GameObjects.Image) => {
+      const targetHeight = Math.round(26 * uiScale)
+      const targetWidth = Math.round(targetHeight * 1.5)
+      const scale = targetHeight / Math.max(1, flag.height)
+      flag.setScale(scale)
+
+      const cropWidth = Math.min(flag.width, Math.round(targetWidth / scale))
+      const cropX = Math.max(0, Math.floor((flag.width - cropWidth) / 2))
+      flag.setCrop(cropX, 0, cropWidth, flag.height)
+    }
+
+    const languageFlag = this.add
+      .image(0, 0, settings.language === 'fr' ? 'flag-fr' : 'flag-en')
+      .setOrigin(1, 0)
+      .setDepth(11)
+      .setAlpha(0)
+    applyFlagSizingAndCrop(languageFlag)
+
+    const flagPadding = Math.round(18 * uiScale)
+    const panelRight = centerX + panelWidth / 2
+    const panelTop = panelY - panelHeight / 2
+    languageFlag.setPosition(Math.round(panelRight - flagPadding), Math.round(panelTop + flagPadding))
+
+    this.time.delayedCall(300, () => {
+      languageFlag.setAlpha(1)
+    })
+
     const difficultyTitle = this.add.text(centerX, Math.round(188 * uiScale), 'Choose Mode', {
       fontFamily: 'BubbleDisplay',
       fontSize: `${Math.round(20 * uiScale)}px`,
