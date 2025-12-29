@@ -27,7 +27,12 @@ const BANNED_EN = new Set([
   'porno',
   'nude',
   'naked',
-  'nazi'
+  'nazi',
+  'asshole',
+  'bitch',
+  'fuckin',
+  'fucking',
+  'bastard'
 ])
 const BANNED_FR = new Set([
   'sexe',
@@ -50,6 +55,28 @@ const BANNED_FR = new Set([
   'nazi'
 ])
 
+const EN_CONTRACTION_FIXES = new Map([
+  ['ain', "ain't"],
+  ['aren', "aren't"],
+  ['couldn', "couldn't"],
+  ['didn', "didn't"],
+  ['doesn', "doesn't"],
+  ['hadn', "hadn't"],
+  ['hasn', "hasn't"],
+  ['haven', "haven't"],
+  ['isn', "isn't"],
+  ['shouldn', "shouldn't"],
+  ['wasn', "wasn't"],
+  ['weren', "weren't"],
+  ['wouldn', "wouldn't"]
+])
+
+function normalizeEnglishWordToken(word) {
+  if (!word) return word
+  const normalized = word.toLowerCase().normalize('NFC').replace(/[’`´]/g, "'")
+  return EN_CONTRACTION_FIXES.get(normalized) ?? normalized
+}
+
 function createRng(seed = 1) {
   let x = seed | 0
   return () => {
@@ -67,8 +94,10 @@ function isGoodWord(word, language) {
     if (word.includes('œ')) return false
     if (BANNED_FR.has(word)) return false
   } else {
-    if (!/^[a-z]+$/.test(word)) return false
-    if (BANNED_EN.has(word)) return false
+    // Allow common negative contractions (e.g. "aren't") for typing, but keep it conservative.
+    if (!/^[a-z]+$/.test(word) && !/^[a-z]+n't$/.test(word)) return false
+    const bare = word.replace(/'/g, '')
+    if (BANNED_EN.has(word) || BANNED_EN.has(bare)) return false
   }
   return true
 }
@@ -108,7 +137,8 @@ function bucketWords(words, language) {
     words_6_10: new Set()
   }
 
-  for (const w of words) {
+  for (const rawWord of words) {
+    const w = language === 'en' ? normalizeEnglishWordToken(rawWord) : rawWord
     if (!isGoodWord(w, language)) continue
     for (const [key, rule] of Object.entries(TARGETS)) {
       if (out[key].length >= rule.count) continue
@@ -244,270 +274,205 @@ function generatePhrases(language) {
   const pick = (arr) => arr[Math.floor(rng() * arr.length)]
 
   if (language === 'en') {
+    // Seed with a varied, mostly neutral set to avoid overly repetitive positivity.
     addAll([
       'thank you',
       'thanks a lot',
       'you are welcome',
+      'excuse me',
+      'please',
+      'please wait',
+      'one moment',
+      'just a second',
       'of course',
       'good morning',
       'good afternoon',
       'good evening',
       'good night',
-      'have a nice day',
-      'have a great day',
       'see you soon',
       'see you tomorrow',
       'take care',
       'good luck',
       'well done',
-      'great job',
+      'good job',
       'nice work',
-      'excellent work',
       'keep it up',
-      'i will try',
-      'we will try',
-      'we will eat',
-      'we will meet',
-      'we will talk',
-      'i will call',
-      'i will write',
-      'i will read',
-      'i will come',
-      'i will go',
-      'i am happy',
-      'i am excited',
-      'i am calm',
+      'keep going',
+      'you got this',
+      'i am here',
+      'we are here',
+      'are you here',
       'i am ready',
-      'i am grateful',
-      'i am confident',
-      'i am proud',
-      'i can do it',
-      'we can do it',
-      'you can do it',
-      'you are great',
-      'you are amazing',
-      'this is excellent',
-      'this is amazing',
-      'this is great',
-      'that is excellent',
-      'that is amazing',
-      'that is great',
-      'it is excellent',
-      'it is amazing',
-      'it is great',
-      'it is perfect',
-      'it is wonderful',
-      'it is awesome',
-      'what a great day'
+      'are you ready',
+      'i am busy',
+      'i am free',
+      'i am calm',
+      'i am focused',
+      'i am curious',
+      'i understand',
+      'i agree',
+      'i see',
+      'come here',
+      'follow me',
+      'come with me',
+      'look at this',
+      'listen to me',
+      'read this now',
+      'write it down',
+      'save your work',
+      'press the key',
+      'type the word',
+      'watch the bubbles',
+      'keep your pace',
+      'breathe in slowly',
+      'breathe out slowly',
+      'the sky is blue',
+      'the sun is bright',
+      'the ocean is deep',
+      'the water is clear',
+      'waves are gentle',
+      'time moves fast',
+      'step by step',
+      'one at a time',
+      'ready set go'
     ])
 
-    const iAm = [
-      'ready',
-      'calm',
-      'happy',
-      'excited',
-      'brave',
-      'strong',
-      'grateful',
-      'confident',
-      'proud',
-      'optimistic',
-      'relaxed',
-      'focused'
-    ]
-    iAm.forEach((adj) => tryAdd(`i am ${adj}`))
+    const shortVerbs = ['read', 'write', 'walk', 'talk', 'wait', 'help', 'learn', 'try', 'play', 'work', 'come', 'go', 'meet', 'call', 'move']
+    shortVerbs.forEach((v) => tryAdd(`i ${v}`))
+    shortVerbs.forEach((v) => tryAdd(`we ${v}`))
 
-    const iFeel = [
-      'good',
-      'great',
-      'calm',
-      'happy',
-      'ready',
-      'strong',
-      'confident',
-      'grateful',
-      'relaxed'
-    ]
-    iFeel.forEach((adj) => tryAdd(`i feel ${adj}`))
+    const statusWords = ['ready', 'calm', 'focused', 'busy', 'free', 'here', 'early', 'steady', 'quiet', 'awake']
+    statusWords.forEach((w) => tryAdd(`i am ${w}`))
+    statusWords.forEach((w) => tryAdd(`we are ${w}`))
 
-    const itIs = [
-      'good',
-      'great',
-      'true',
-      'time',
-      'enough',
-      'important',
-      'possible',
-      'excellent',
-      'amazing',
-      'perfect',
-      'wonderful'
-    ]
-    itIs.forEach((w) => tryAdd(`it is ${w}`))
+    const neutralStatements = ['true', 'clear', 'simple', 'fine', 'okay', 'possible', 'enough', 'important']
+    neutralStatements.forEach((w) => tryAdd(`it is ${w}`))
+    neutralStatements.forEach((w) => tryAdd(`this is ${w}`))
+    neutralStatements.forEach((w) => tryAdd(`that is ${w}`))
+    tryAdd('it is time')
 
-    const thisIs = ['good', 'great', 'excellent', 'amazing', 'perfect', 'wonderful', 'awesome']
-    thisIs.forEach((w) => tryAdd(`this is ${w}`))
-    thisIs.forEach((w) => tryAdd(`that is ${w}`))
+    const waterNouns = ['ocean', 'sea', 'water', 'wave']
+    const waterAdjectives = ['calm', 'clear', 'deep', 'gentle', 'smooth']
+    const waterVerbs = ['flows', 'moves', 'drifts']
 
-    const iAmNow = ['ready', 'happy', 'excited', 'calm', 'grateful', 'confident']
-    iAmNow.forEach((w) => tryAdd(`i am ${w} now`))
+    const skyNouns = ['sky', 'air']
+    const skyAdjectives = ['blue', 'clear', 'wide', 'quiet']
+    const cloudVerbs = ['drifts', 'moves']
 
-    const iAmToday = ['happy', 'excited', 'ready', 'calm', 'confident']
-    iAmToday.forEach((w) => tryAdd(`i am ${w} today`))
+    const lightNouns = ['sun', 'moon', 'light']
+    const lightAdjectives = ['bright', 'soft', 'calm', 'quiet']
+    const lightVerbs = ['shines', 'glows', 'rises']
 
-    const positivePersonAdjectives = [
-      'happy',
-      'excited',
-      'calm',
-      'ready',
-      'confident',
-      'grateful',
-      'proud',
-      'brave',
-      'strong',
-      'kind',
-      'smart',
-      'optimistic',
-      'relaxed',
-      'focused',
-      'joyful',
-      'cheerful',
-      'thankful',
-      'positive',
-      'motivated',
-      'inspired',
-      'lucky',
-      'creative',
-      'energetic',
-      'friendly',
-      'helpful'
-    ]
+    const imperativesStandalone = ['breathe', 'focus', 'relax', 'listen', 'look']
+    const imperativesPolite = ['breathe', 'focus', 'relax', 'listen', 'look', 'wait']
+    const keyTargets = ['key', 'keys']
+    const typeTargets = ['word', 'line']
+    const keepTargets = ['pace', 'focus']
+    const directions = ['left', 'right', 'forward', 'back']
 
-    const positiveThingAdjectives = [
-      'good',
-      'great',
-      'excellent',
-      'amazing',
-      'awesome',
-      'wonderful',
-      'perfect',
-      'fantastic',
-      'brilliant',
-      'beautiful',
-      'helpful',
-      'incredible',
-      'cool',
-      'nice',
-      'strong',
-      'clear',
-      'smart'
-    ]
+    const friendlyAdjectives = ['calm', 'ready', 'steady', 'brave', 'kind', 'smart']
+    const doorTargets = ['door', 'window']
+    const animals = ['cat', 'dog', 'bird', 'fish', 'whale', 'turtle', 'rabbit', 'fox', 'owl', 'frog']
+    const animalVerbs = ['moves', 'rests', 'waits', 'runs', 'swims', 'drifts']
+    const times = ['now', 'today', 'soon']
 
-    const positiveVerbs = [
-      'win',
-      'help',
-      'start',
-      'learn',
-      'try',
-      'play',
-      'smile',
-      'relax',
-      'build',
-      'create',
-      'grow',
-      'shine',
-      'improve',
-      'succeed'
-    ]
+    const questionStatus = ['ready', 'here', 'busy', 'free', 'calm']
 
-    const positiveNouns = [
-      'day',
-      'time',
-      'plan',
-      'idea',
-      'chance',
-      'moment',
-      'goal',
-      'future',
-      'story',
-      'result',
-      'win',
-      'breakthrough',
-      'victory',
-      'surprise',
-      'smile'
-    ]
-    const dayAdjectives = ['good', 'great', 'wonderful', 'amazing', 'beautiful', 'fantastic', 'excellent', 'awesome']
-    const timeAdjectives = ['good', 'great', 'wonderful', 'amazing', 'excellent', 'fantastic']
-
-    const neutralVerbs = [
-      'eat',
-      'meet',
-      'talk',
-      'walk',
-      'work',
-      'read',
-      'write',
-      'play',
-      'wait',
-      'help',
-      'start',
-      'learn',
-      'try',
-      'call',
-      'go',
-      'come'
-    ]
-
-    const neutralTemplates = [
-      () => `i will ${pick(neutralVerbs)}`,
-      () => `we will ${pick(neutralVerbs)}`,
-      () => `we can ${pick(neutralVerbs)}`,
-      () => `i can ${pick(neutralVerbs)}`,
+    const subjectTemplates = [
       () => `i will be there`,
-      () => `we are here`,
-      () => `it is okay`,
-      () => `it is simple`,
-      () => `it is fine`
+      () => `we will be there`,
+      () => `i will ${pick(shortVerbs)} ${pick(times)}`,
+      () => `we will ${pick(shortVerbs)} ${pick(times)}`,
+      () => `i can ${pick(shortVerbs)}`,
+      () => `we can ${pick(shortVerbs)}`
     ]
 
-    const positiveTemplates = [
-      () => `i am ${pick(positivePersonAdjectives)}`,
-      () => `i feel ${pick(positivePersonAdjectives)}`,
-      () => `i am very ${pick(positivePersonAdjectives)}`,
-      () => `i feel very ${pick(positivePersonAdjectives)}`,
-      () => `this is ${pick(positiveThingAdjectives)}`,
-      () => `that is ${pick(positiveThingAdjectives)}`,
-      () => `it is ${pick(positiveThingAdjectives)}`,
-      () => `this is really ${pick(positiveThingAdjectives)}`,
-      () => `that is really ${pick(positiveThingAdjectives)}`,
-      () => `you are ${pick(positivePersonAdjectives)}`,
-      () => `you are very ${pick(positivePersonAdjectives)}`,
-      () => `we are ${pick(positivePersonAdjectives)}`,
-      () => `we are very ${pick(positivePersonAdjectives)}`,
-      () => `we can ${pick(positiveVerbs)}`,
-      () => `we will ${pick(positiveVerbs)}`,
-      () => `you can ${pick(positiveVerbs)}`,
-      () => `have a ${pick(positiveNouns)}`,
-      () => `have a ${pick(dayAdjectives)} day`,
-      () => `have a ${pick(timeAdjectives)} time`,
-      () => `have a great weekend`,
+    const questionTemplates = [
+      () => `how are you`,
+      () => `where are you`,
+      () => `what is this`,
+      () => `what is that`,
+      () => `can you ${pick(shortVerbs)}`,
+      () => `can we ${pick(shortVerbs)}`,
+      () => `are you ${pick(questionStatus)}`
+    ]
+
+    const commandTemplates = [
+      () => `${pick(imperativesStandalone)} now`,
+      () => `${pick(imperativesStandalone)} slowly`,
+      () => `turn ${pick(directions)} now`,
+      () => `go ${pick(directions)} now`,
+      () => `press the ${pick(keyTargets)}`,
+      () => `type the ${pick(typeTargets)}`,
+      () => `read the ${pick(typeTargets)}`,
+      () => `write the ${pick(typeTargets)}`,
+      () => `keep your ${pick(keepTargets)}`,
+      () => `save your work`,
+      () => `take a breath`,
+      () => `open the ${pick(doorTargets)}`,
+      () => `close the ${pick(doorTargets)}`,
+      () => `turn the page`,
+      () => `follow the light`,
+      () => `please ${pick(imperativesPolite)}`,
+      () => `look at me`,
+      () => `listen to me`
+    ]
+
+    const factTemplates = [
+      () => `the ${pick(waterNouns)} is ${pick(waterAdjectives)}`,
+      () => `the ${pick(waterNouns)} ${pick(waterVerbs)}`,
+      () => `the ${pick(skyNouns)} is ${pick(skyAdjectives)}`,
+      () => `the cloud ${pick(cloudVerbs)}`,
+      () => `the ${pick(lightNouns)} is ${pick(lightAdjectives)}`,
+      () => `the ${pick(lightNouns)} ${pick(lightVerbs)}`
+    ]
+
+    const shortTemplates = [
+      () => `see you soon`,
+      () => `time for practice`,
+      () => `time for typing`,
+      () => `time for rest`,
+      () => `time for music`,
+      () => `one more time`,
+      () => `keep it simple`,
+      () => `keep it steady`,
+      () => `take it easy`,
+      () => `step by step`,
+      () => `under the water`,
+      () => `over the waves`,
+      () => `beneath the surface`,
+      () => `the ${pick(animals)} ${pick(animalVerbs)}`
+    ]
+
+    const encouragementTemplates = [
+      () => `you are ${pick(friendlyAdjectives)}`,
+      () => `we are ${pick(friendlyAdjectives)}`,
       () => `keep going`,
-      () => `keep smiling`,
-      () => `stay positive`,
-      () => `you got this`,
-      () => `we got this`,
-      () => `we did it`,
-      () => `you did great`
+      () => `good job`,
+      () => `well done`
     ]
 
-    const templates = [...neutralTemplates, ...neutralTemplates, ...positiveTemplates]
+    const allTemplates = [
+      ...commandTemplates,
+      ...commandTemplates,
+      ...commandTemplates,
+      ...commandTemplates,
+      ...factTemplates,
+      ...factTemplates,
+      ...factTemplates,
+      ...shortTemplates,
+      ...shortTemplates,
+      ...questionTemplates,
+      ...questionTemplates,
+      ...subjectTemplates,
+      ...encouragementTemplates
+    ]
 
     let attempts = 0
-    const maxAttempts = PHRASE_COUNT * 800
+    const maxAttempts = PHRASE_COUNT * 2000
     while (phrases.size < PHRASE_COUNT && attempts < maxAttempts) {
       attempts += 1
-      tryAdd(pick(templates)())
+      tryAdd(pick(allTemplates)())
     }
   } else {
     addAll([
@@ -881,21 +846,44 @@ function generatePhrases(language) {
 async function main() {
   const args = process.argv.slice(2)
   const outDir = path.resolve('src/data')
-  const phrasesOnly = args.includes('--phrases-only')
+  const phrasesOnlyArg = args.find((a) => a === '--phrases-only' || a.startsWith('--phrases-only='))
+  const phrasesOnly = Boolean(phrasesOnlyArg)
+  const phrasesOnlyTarget = phrasesOnlyArg?.includes('=') ? phrasesOnlyArg.split('=')[1] : undefined
   const enArg = args.find((a) => a.startsWith('--en='))?.slice('--en='.length)
   const frArg = args.find((a) => a.startsWith('--fr='))?.slice('--fr='.length)
 
   if (phrasesOnly) {
-    const enBank = JSON.parse(await fs.readFile(path.join(outDir, 'words.en.json'), 'utf8'))
-    const frBank = JSON.parse(await fs.readFile(path.join(outDir, 'words.fr.json'), 'utf8'))
+    const target = phrasesOnlyTarget?.toLowerCase()
+    const updateEn = !target || target === 'all' || target === 'en' || target === 'english'
+    const updateFr = !target || target === 'all' || target === 'fr' || target === 'french'
 
-    enBank.phrases = generatePhrases('en')
-    frBank.phrases = generatePhrases('fr')
+    let enBank
+    let frBank
 
-    await fs.writeFile(path.join(outDir, 'words.en.json'), JSON.stringify(enBank, null, 2) + '\n', 'utf8')
-    await fs.writeFile(path.join(outDir, 'words.fr.json'), JSON.stringify(frBank, null, 2) + '\n', 'utf8')
+    if (updateEn) {
+      enBank = JSON.parse(await fs.readFile(path.join(outDir, 'words.en.json'), 'utf8'))
+      enBank.phrases = generatePhrases('en')
+      await fs.writeFile(path.join(outDir, 'words.en.json'), JSON.stringify(enBank, null, 2) + '\n', 'utf8')
+    }
 
-    console.log(JSON.stringify({ mode: 'phrases-only', en: { phrases: enBank.phrases.length }, fr: { phrases: frBank.phrases.length } }, null, 2))
+    if (updateFr) {
+      frBank = JSON.parse(await fs.readFile(path.join(outDir, 'words.fr.json'), 'utf8'))
+      frBank.phrases = generatePhrases('fr')
+      await fs.writeFile(path.join(outDir, 'words.fr.json'), JSON.stringify(frBank, null, 2) + '\n', 'utf8')
+    }
+
+    console.log(
+      JSON.stringify(
+        {
+          mode: 'phrases-only',
+          target: target ?? 'all',
+          en: updateEn ? { phrases: enBank.phrases.length } : { phrases: 'unchanged' },
+          fr: updateFr ? { phrases: frBank.phrases.length } : { phrases: 'unchanged' }
+        },
+        null,
+        2
+      )
+    )
     return
   }
 
