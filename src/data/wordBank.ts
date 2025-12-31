@@ -1,8 +1,10 @@
 import wordsEn from './words.en.json'
 import wordsFr from './words.fr.json'
+import wordsEs from './words.es.json'
+import wordsAr from './words.ar.json'
 import { DIFFICULTY, type DifficultyId } from '../config/difficulty'
 
-export type LanguageId = 'en' | 'fr'
+export type LanguageId = 'en' | 'fr' | 'es' | 'ar'
 
 export type WordBank = {
   words_3_4: string[]
@@ -13,7 +15,9 @@ export type WordBank = {
 
 const banks: Record<LanguageId, WordBank> = {
   en: wordsEn,
-  fr: wordsFr
+  fr: wordsFr,
+  es: wordsEs,
+  ar: wordsAr
 }
 
 export function getBank(language: LanguageId): WordBank {

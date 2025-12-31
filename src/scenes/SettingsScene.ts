@@ -7,12 +7,20 @@ import type { LanguageId } from '../data/wordBank'
 
 const LANGUAGE_DISPLAY_NAMES: Record<LanguageId, string> = {
   en: 'English',
-  fr: 'Français'
+  fr: 'Français',
+  es: 'Español'
 }
 
 const LANGUAGE_FLAG_TEXTURE_KEYS: Record<LanguageId, string> = {
   en: 'flag-en',
-  fr: 'flag-fr'
+  fr: 'flag-fr',
+  es: 'flag-es'
+}
+
+const LANGUAGE_ORDER: LanguageId[] = ['en', 'fr', 'es']
+function nextLanguage(current: LanguageId): LanguageId {
+  const idx = LANGUAGE_ORDER.indexOf(current)
+  return LANGUAGE_ORDER[(idx + 1) % LANGUAGE_ORDER.length] ?? 'en'
 }
 
 export class SettingsScene extends Phaser.Scene {
@@ -99,7 +107,7 @@ export class SettingsScene extends Phaser.Scene {
       .setShadow(0, 6, 'rgba(0,0,0,0.28)', 12, false, true)
 
     const languageButton = createButton(this, centerX - buttonOffsetX, languageY, 'Language', () => {
-      this.settings.language = this.settings.language === 'en' ? 'fr' : 'en'
+      this.settings.language = nextLanguage(this.settings.language)
       this.refresh()
       this.pulse(this.languageRow)
     }, { width: buttonWidth, height: buttonHeight, depth: 9, accent: 0xffcf66 })

@@ -6,12 +6,19 @@ import { loadSettings, saveSettings } from '../systems/SettingsStore'
 import { getBestScore } from '../systems/BestScoreStore'
 import { createUnderwaterBackground, type UnderwaterBackground } from '../ui/fx/UnderwaterBackground'
 import { ensureDefaultProfile, getActiveProfileId } from '../systems/ProfileStore'
+import type { LanguageId } from '../data/wordBank'
 
 type BackBubble = {
   sprite: Phaser.GameObjects.Sprite
   spec: Phaser.GameObjects.Sprite
   speed: number
   drift: number
+}
+
+const LANGUAGE_FLAG_TEXTURE_KEYS: Record<LanguageId, string> = {
+  en: 'flag-en',
+  fr: 'flag-fr',
+  es: 'flag-es'
 }
 
 export class MenuScene extends Phaser.Scene {
@@ -84,7 +91,7 @@ export class MenuScene extends Phaser.Scene {
     }
 
     const languageFlag = this.add
-      .image(0, 0, settings.language === 'fr' ? 'flag-fr' : 'flag-en')
+      .image(0, 0, LANGUAGE_FLAG_TEXTURE_KEYS[settings.language])
       .setOrigin(1, 0)
       .setDepth(11)
       .setAlpha(0)
