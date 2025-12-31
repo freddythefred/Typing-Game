@@ -55,6 +55,7 @@ export class GameScene extends Phaser.Scene {
   private waterSurface?: Phaser.GameObjects.TileSprite
   private waterFoam?: Phaser.GameObjects.Graphics
   private waterMask?: Phaser.GameObjects.Graphics
+  private waterBody?: MatterJS.BodyType
   private waterTopY = 0
   private waterHeight = 0
   private waterWavePhases: number[] = []
@@ -212,7 +213,6 @@ export class GameScene extends Phaser.Scene {
 
     const config = DIFFICULTY[this.difficultyId]
     this.backdropFx?.update(time, delta)
-    this.bubbleManager.update(delta)
 
     this.updateWater(time, delta)
 
@@ -354,6 +354,11 @@ export class GameScene extends Phaser.Scene {
     this.waterSurface?.destroy()
     this.waterFoam?.destroy()
     this.waterMask?.destroy()
+
+    if (this.waterBody) {
+      this.matter.world.remove(this.waterBody)
+      this.waterBody = undefined
+    }
     this.waterWavePhases = Array.from(
       { length: Phaser.Math.Clamp(Math.round(width / 38), 24, 56) },
       () => Math.random() * Math.PI * 2
@@ -408,7 +413,7 @@ export class GameScene extends Phaser.Scene {
 
     const foam = this.add.graphics().setDepth(4)
     this.waterFoam = foam
-    this.matter.add.rectangle(
+    this.waterBody = this.matter.add.rectangle(
       width / 2,
       this.waterTopY + this.waterHeight / 2,
       width,
@@ -574,9 +579,15 @@ export class GameScene extends Phaser.Scene {
       this.scale.off('resize', this.handleResize, this)
 
       this.bubbleManager?.clear()
+      this.bubbleManager?.destroy({ destroyObjects: true })
 
       this.backdropFx?.destroy()
       this.backdropFx = undefined
+
+      if (this.waterBody) {
+        this.matter.world.remove(this.waterBody)
+        this.waterBody = undefined
+      }
 
       this.water?.destroy()
       this.water = undefined

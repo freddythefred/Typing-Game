@@ -1,4 +1,4 @@
-import Phaser from 'phaser'
+﻿import Phaser from 'phaser'
 import { createButton } from '../ui/components/UiButton'
 import { createGlassPanel } from '../ui/components/GlassPanel'
 import { loadSettings, saveSettings, type Settings } from '../systems/SettingsStore'
@@ -8,19 +8,23 @@ import type { LanguageId } from '../data/wordBank'
 const LANGUAGE_DISPLAY_NAMES: Record<LanguageId, string> = {
   en: 'English',
   fr: 'Français',
-  es: 'Español'
+  es: 'Español',
+  ar: 'العربية'
 }
 
 const LANGUAGE_FLAG_TEXTURE_KEYS: Record<LanguageId, string> = {
   en: 'flag-en',
   fr: 'flag-fr',
-  es: 'flag-es'
+  es: 'flag-es',
+  ar: 'flag-ar'
 }
 
-const LANGUAGE_ORDER: LanguageId[] = ['en', 'fr', 'es']
-function nextLanguage(current: LanguageId): LanguageId {
-  const idx = LANGUAGE_ORDER.indexOf(current)
-  return LANGUAGE_ORDER[(idx + 1) % LANGUAGE_ORDER.length] ?? 'en'
+const LANGUAGE_ORDER: LanguageId[] = ['en', 'fr', 'es', 'ar']
+
+type LanguageDropdownState = {
+  backdrop: Phaser.GameObjects.Rectangle
+  panel: Phaser.GameObjects.Container
+  items: Phaser.GameObjects.Container[]
 }
 
 export class SettingsScene extends Phaser.Scene {
@@ -31,6 +35,7 @@ export class SettingsScene extends Phaser.Scene {
   private languageText!: Phaser.GameObjects.Text
   private volumeText!: Phaser.GameObjects.Text
   private backdropFx?: UnderwaterBackground
+  private languageDropdown?: LanguageDropdownState
 
   constructor() {
     super('Settings')
@@ -91,7 +96,18 @@ export class SettingsScene extends Phaser.Scene {
       })
       .setOrigin(0, 0.5)
       .setShadow(0, 6, 'rgba(0,0,0,0.28)', 12, false, true)
+
     this.languageRow.add([this.languageFlag, this.languageText])
+    this.languageRow.setSize(Math.round(360 * uiScale), Math.round(70 * uiScale))
+    this.languageRow.setInteractive({ useHandCursor: true })
+
+    this.languageRow.on('pointerover', () => {
+      this.tweens.add({ targets: this.languageRow, scale: 1.03, duration: 140, ease: 'Sine.easeOut' })
+    })
+    this.languageRow.on('pointerout', () => {
+      this.tweens.add({ targets: this.languageRow, scale: 1, duration: 180, ease: 'Sine.easeOut' })
+    })
+
     this.applyFlagSizingAndCrop()
 
     this.volumeText = this.add
@@ -106,39 +122,74 @@ export class SettingsScene extends Phaser.Scene {
       .setDepth(10)
       .setShadow(0, 6, 'rgba(0,0,0,0.28)', 12, false, true)
 
-    const languageButton = createButton(this, centerX - buttonOffsetX, languageY, 'Language', () => {
-      this.settings.language = nextLanguage(this.settings.language)
-      this.refresh()
-      this.pulse(this.languageRow)
-    }, { width: buttonWidth, height: buttonHeight, depth: 9, accent: 0xffcf66 })
+    const languageButton = createButton(
+      this,
+      centerX - buttonOffsetX,
+      languageY,
+      'Language',
+      () => this.toggleLanguageDropdown(centerX, languageY, Math.round(360 * uiScale)),
+      { width: buttonWidth, height: buttonHeight, depth: 9, accent: 0xffcf66 }
+    )
 
-    const volumeDown = createButton(this, centerX - buttonOffsetX, volumeY, 'Volume -', () => {
-      this.settings.volume = Math.max(0, Math.round((this.settings.volume - 0.1) * 10) / 10)
-      this.refresh()
-      this.pulse(this.volumeText)
-    }, { width: buttonWidth, height: buttonHeight, depth: 9, accent: 0xffcf66 })
+    this.languageRow.on('pointerup', () => {
+      this.toggleLanguageDropdown(centerX, languageY, Math.round(360 * uiScale))
+    })
 
-    const volumeUp = createButton(this, centerX + buttonOffsetX, volumeY, 'Volume +', () => {
-      this.settings.volume = Math.min(1, Math.round((this.settings.volume + 0.1) * 10) / 10)
-      this.refresh()
-      this.pulse(this.volumeText)
-    }, { width: buttonWidth, height: buttonHeight, depth: 9, accent: 0xffcf66 })
+    const volumeDown = createButton(
+      this,
+      centerX - buttonOffsetX,
+      volumeY,
+      'Volume -',
+      () => {
+        this.settings.volume = Math.max(0, Math.round((this.settings.volume - 0.1) * 10) / 10)
+        this.refresh()
+        this.pulse(this.volumeText)
+      },
+      { width: buttonWidth, height: buttonHeight, depth: 9, accent: 0xffcf66 }
+    )
+
+    const volumeUp = createButton(
+      this,
+      centerX + buttonOffsetX,
+      volumeY,
+      'Volume +',
+      () => {
+        this.settings.volume = Math.min(1, Math.round((this.settings.volume + 0.1) * 10) / 10)
+        this.refresh()
+        this.pulse(this.volumeText)
+      },
+      { width: buttonWidth, height: buttonHeight, depth: 9, accent: 0xffcf66 }
+    )
 
     let transitioning = false
-    const backButton = createButton(this, centerX, this.scale.height - Math.round(90 * uiScale), 'Back', () => {
-      if (transitioning) return
-      transitioning = true
-      backButton.disableInteractive()
-      languageButton.disableInteractive()
-      volumeDown.disableInteractive()
-      volumeUp.disableInteractive()
+    const backButton = createButton(
+      this,
+      centerX,
+      this.scale.height - Math.round(90 * uiScale),
+      'Back',
+      () => {
+        if (transitioning) return
+        transitioning = true
+        backButton.disableInteractive()
+        this.closeLanguageDropdown()
+        this.languageRow.disableInteractive()
+        languageButton.disableInteractive()
+        volumeDown.disableInteractive()
+        volumeUp.disableInteractive()
 
-      saveSettings(this.settings)
-      this.cameras.main.fadeOut(240, 4, 10, 18)
-      this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-        this.scene.start('Menu')
-      })
-    }, { width: Math.min(Math.round(260 * uiScale), this.scale.width - 80), height: Math.round(58 * uiScale), depth: 10, accent: 0x66e3ff })
+        saveSettings(this.settings)
+        this.cameras.main.fadeOut(240, 4, 10, 18)
+        this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+          this.scene.start('Menu')
+        })
+      },
+      {
+        width: Math.min(Math.round(260 * uiScale), this.scale.width - 80),
+        height: Math.round(58 * uiScale),
+        depth: 10,
+        accent: 0x66e3ff
+      }
+    )
 
     const vignette = this.add
       .image(centerX, this.scale.height / 2, 'vignette')
@@ -151,6 +202,7 @@ export class SettingsScene extends Phaser.Scene {
 
     this.scale.on('resize', () => this.scene.restart())
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.closeLanguageDropdown()
       this.backdropFx?.destroy()
       this.backdropFx = undefined
     })
@@ -171,20 +223,26 @@ export class SettingsScene extends Phaser.Scene {
   }
 
   private applyFlagSizingAndCrop() {
-    const targetHeight = Math.round(24 * this.uiScale)
+    this.applyFlagSizingAndCropFor(this.languageFlag, Math.round(48 * this.uiScale))
+  }
+
+  private applyFlagSizingAndCropFor(flag: Phaser.GameObjects.Image, targetHeight: number) {
     const targetWidth = Math.round(targetHeight * 1.5)
-    const scale = targetHeight / Math.max(1, this.languageFlag.height)
+    const safeHeight = Math.max(1, flag.height)
+    const scale = targetHeight / safeHeight
 
-    this.languageFlag.setScale(scale)
+    flag.setScale(scale)
 
-    const cropWidth = Math.min(this.languageFlag.width, Math.round(targetWidth / scale))
-    const cropX = Math.max(0, Math.floor((this.languageFlag.width - cropWidth) / 2))
-    this.languageFlag.setCrop(cropX, 0, cropWidth, this.languageFlag.height)
+    const cropWidth = Math.min(flag.width, Math.round(targetWidth / scale))
+    const cropX = Math.max(0, Math.floor((flag.width - cropWidth) / 2))
+    flag.setCrop(cropX, 0, cropWidth, flag.height)
+    flag.setData('visibleWidth', targetWidth)
+    flag.setData('visibleHeight', targetHeight)
   }
 
   private layoutLanguageRow() {
     const gap = Math.round(12 * this.uiScale)
-    const flagWidth = this.languageFlag.displayWidth
+    const flagWidth = (this.languageFlag.getData('visibleWidth') as number | undefined) ?? this.languageFlag.displayWidth
     const textWidth = this.languageText.width
     const totalWidth = flagWidth + gap + textWidth
 
@@ -200,5 +258,132 @@ export class SettingsScene extends Phaser.Scene {
       yoyo: true,
       ease: 'Sine.easeOut'
     })
+  }
+
+  private toggleLanguageDropdown(anchorX: number, anchorY: number, width: number) {
+    if (this.languageDropdown) {
+      this.closeLanguageDropdown()
+      return
+    }
+
+    const uiScale = this.uiScale
+    const itemHeight = Math.round(56 * uiScale)
+    const pad = Math.round(10 * uiScale)
+    const outerPadding = Math.round(10 * uiScale)
+    const panelWidth = Math.min(Math.max(width, Math.round(320 * uiScale)), this.scale.width - 40)
+    const panelHeight = outerPadding * 2 + LANGUAGE_ORDER.length * itemHeight
+    const panelRadius = Math.round(18 * uiScale)
+
+    const preferBelowTop = anchorY + Math.round(40 * uiScale)
+    const preferAboveTop = anchorY - Math.round(40 * uiScale) - panelHeight
+    const topY =
+      preferBelowTop + panelHeight < this.scale.height - 24 ? preferBelowTop : Math.max(24, preferAboveTop)
+    const panelY = Math.round(topY + panelHeight / 2)
+
+    const backdrop = this.add
+      .rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x061420, 0.98)
+      .setDepth(44)
+      .setInteractive()
+    backdrop.on('pointerdown', () => this.closeLanguageDropdown())
+
+    const panel = createGlassPanel(this, anchorX, panelY, panelWidth, panelHeight, {
+      depth: 45,
+      radius: panelRadius,
+      accent: 0xffcf66,
+      float: false
+    })
+
+    const setItemBorder = (container: Phaser.GameObjects.Container, alpha: number) => {
+      const border = container.getData('border') as Phaser.GameObjects.Graphics
+      const w = container.getData('w') as number
+      const h = container.getData('h') as number
+      const r = container.getData('r') as number
+      border.clear()
+      border.lineStyle(2, 0xffffff, alpha)
+      border.strokeRoundedRect(-w / 2, -h / 2, w, h, r)
+    }
+
+    const setItemInner = (container: Phaser.GameObjects.Container, alpha: number) => {
+      const inner = container.getData('inner') as Phaser.GameObjects.Graphics
+      const w = container.getData('w') as number
+      const h = container.getData('h') as number
+      const r = container.getData('r') as number
+      inner.clear()
+      inner.lineStyle(1, 0xffcf66, alpha)
+      inner.strokeRoundedRect(-w / 2 + 4, -h / 2 + 4, w - 8, h - 8, Math.max(0, r - 4))
+    }
+
+    const items: Phaser.GameObjects.Container[] = []
+
+    LANGUAGE_ORDER.forEach((language, index) => {
+      const itemWidth = panelWidth - outerPadding * 2
+      const itemX = anchorX
+      const itemY = Math.round(topY + outerPadding + itemHeight / 2 + index * itemHeight)
+      const item = createGlassPanel(this, itemX, itemY, itemWidth, itemHeight - 6, {
+        depth: 46,
+        radius: Math.round(16 * uiScale),
+        accent: 0xffcf66,
+        float: false
+      })
+
+      item.setSize(itemWidth, itemHeight - 6)
+      item.setInteractive({ useHandCursor: true })
+      item.setData('w', itemWidth)
+      item.setData('h', itemHeight - 6)
+      item.setData('r', Math.round(16 * uiScale))
+      item.setData('language', language)
+
+      const isSelected = this.settings.language === language
+      setItemBorder(item, isSelected ? 0.26 : 0.12)
+      setItemInner(item, isSelected ? 0.34 : 0.16)
+
+      const flag = this.add.image(0, 0, LANGUAGE_FLAG_TEXTURE_KEYS[language]).setOrigin(0.5)
+      const flagTargetH = Math.round(34 * uiScale)
+      const flagTargetW = Math.round(flagTargetH * 1.5)
+      this.applyFlagSizingAndCropFor(flag, flagTargetH)
+      flag.x = -itemWidth / 2 + pad + flagTargetW / 2
+
+      const label = this.add.text(0, 0, LANGUAGE_DISPLAY_NAMES[language], {
+        fontFamily: 'BubbleDisplay',
+        fontSize: `${Math.round(22 * uiScale)}px`,
+        color: '#eaf6ff'
+      })
+      label.setOrigin(0, 0.5)
+      label.setShadow(0, 6, 'rgba(0,0,0,0.28)', 12, false, true)
+      label.x = Math.round(flag.x + flagTargetW / 2 + Math.round(12 * uiScale))
+
+      item.add([flag, label])
+
+      item.on('pointerover', () => {
+        this.tweens.add({ targets: item, scale: 1.015, duration: 140, ease: 'Sine.easeOut' })
+        setItemBorder(item, 0.24)
+        setItemInner(item, 0.32)
+      })
+      item.on('pointerout', () => {
+        this.tweens.add({ targets: item, scale: 1, duration: 180, ease: 'Sine.easeOut' })
+        const selectedNow = this.settings.language === language
+        setItemBorder(item, selectedNow ? 0.26 : 0.12)
+        setItemInner(item, selectedNow ? 0.34 : 0.16)
+      })
+      item.on('pointerup', () => {
+        this.settings.language = language
+        this.refresh()
+        this.pulse(this.languageRow)
+        this.closeLanguageDropdown()
+      })
+
+      items.push(item)
+    })
+
+    this.languageDropdown = { backdrop, panel, items }
+  }
+
+  private closeLanguageDropdown() {
+    const dropdown = this.languageDropdown
+    if (!dropdown) return
+    dropdown.items.forEach((item) => item.destroy(true))
+    dropdown.panel.destroy(true)
+    dropdown.backdrop.destroy()
+    this.languageDropdown = undefined
   }
 }

@@ -70,6 +70,7 @@ export function deleteProfileScores(profileId: string) {
     window.localStorage.removeItem(storageKeyForProfileLanguage(profileId, 'en'))
     window.localStorage.removeItem(storageKeyForProfileLanguage(profileId, 'fr'))
     window.localStorage.removeItem(storageKeyForProfileLanguage(profileId, 'es'))
+    window.localStorage.removeItem(storageKeyForProfileLanguage(profileId, 'ar'))
   } catch {
     // Ignore storage errors.
   }

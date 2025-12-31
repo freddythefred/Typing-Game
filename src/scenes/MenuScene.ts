@@ -18,7 +18,8 @@ type BackBubble = {
 const LANGUAGE_FLAG_TEXTURE_KEYS: Record<LanguageId, string> = {
   en: 'flag-en',
   fr: 'flag-fr',
-  es: 'flag-es'
+  es: 'flag-es',
+  ar: 'flag-ar'
 }
 
 export class MenuScene extends Phaser.Scene {
@@ -80,7 +81,7 @@ export class MenuScene extends Phaser.Scene {
     panel.setDepth(6)
 
     const applyFlagSizingAndCrop = (flag: Phaser.GameObjects.Image) => {
-      const targetHeight = Math.round(26 * uiScale)
+      const targetHeight = Math.round(52 * uiScale)
       const targetWidth = Math.round(targetHeight * 1.5)
       const scale = targetHeight / Math.max(1, flag.height)
       flag.setScale(scale)

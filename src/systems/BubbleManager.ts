@@ -23,12 +23,38 @@ export class BubbleManager {
   private pool: BubbleItem[] = []
   private active: BubbleItem[] = []
   private idCounter = 0
+  private disposed = false
+
+  private isArabicText(text: string) {
+    return /[\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff]/i.test(text)
+  }
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene
+    this.scene.events.on(Phaser.Scenes.Events.POST_UPDATE, this.postUpdate, this)
+  }
+
+  destroy(options?: { destroyObjects?: boolean }) {
+    if (this.disposed) return
+    this.disposed = true
+
+    this.scene.events.off(Phaser.Scenes.Events.POST_UPDATE, this.postUpdate, this)
+
+    if (options?.destroyObjects) {
+      const all = [...this.active, ...this.pool]
+      this.active = []
+      this.pool = []
+      all.forEach((bubble) => this.destroyBubbleObjects(bubble))
+      return
+    }
+
+    this.clear()
   }
 
   spawn(word: string, normalized: string, config: DifficultyConfig): BubbleItem {
+    if (this.disposed) {
+      throw new Error('[BubbleManager] spawn() called after destroy()')
+    }
     const bubble = this.pool.pop() ?? this.createBubble()
     const [minRadius, maxRadius] = config.bubbleRadius
     const radius = Phaser.Math.Between(minRadius, maxRadius)
@@ -40,6 +66,10 @@ export class BubbleManager {
     bubble.wobblePhase = Math.random() * Math.PI * 2
     bubble.wobbleSpeed = 0.8 + Math.random() * 0.6
     bubble.active = true
+
+    const fontSize = this.isArabicText(word) ? 30 : 26
+    bubble.labelMatch.setFontSize(fontSize)
+    bubble.labelRest.setFontSize(fontSize)
 
     const x = Phaser.Math.Between(radius + 40, this.scene.scale.width - radius - 40)
     const y = -radius - Phaser.Math.Between(30, 140)
@@ -70,7 +100,8 @@ export class BubbleManager {
     return bubble
   }
 
-  update(delta: number) {
+  private postUpdate(_time: number, delta: number) {
+    if (this.disposed) return
     const dt = delta / 1000
     this.active.forEach((bubble) => {
       const wobble = Math.sin(bubble.wobblePhase) * 0.03
@@ -105,6 +136,15 @@ export class BubbleManager {
   }
 
   release(bubble: BubbleItem) {
+    const sprite = bubble.sprite as unknown as { destroyed?: boolean; scene?: unknown }
+    if (sprite.destroyed || !sprite.scene) {
+      bubble.active = false
+      bubble.progress = 0
+      bubble.isTarget = false
+      this.active = this.active.filter((item) => item.id !== bubble.id)
+      return
+    }
+
     bubble.active = false
     bubble.sprite.setVelocity(0, 0)
     bubble.sprite.setAngularVelocity(0)
@@ -126,8 +166,27 @@ export class BubbleManager {
   }
 
   clear() {
+    if (this.disposed) return
     this.active.forEach((bubble) => this.release(bubble))
     this.active = []
+  }
+
+  private destroyBubbleObjects(bubble: BubbleItem) {
+    try {
+      bubble.sprite?.destroy()
+    } catch {
+      // ignore
+    }
+    try {
+      bubble.ring?.destroy()
+    } catch {
+      // ignore
+    }
+    try {
+      bubble.labelContainer?.destroy(true)
+    } catch {
+      // ignore
+    }
   }
 
   private createBubble(): BubbleItem {
@@ -141,12 +200,12 @@ export class BubbleManager {
     ring.setVisible(false)
     const labelMatch = this.scene.add.text(0, 0, '', {
       fontFamily: 'BubbleDisplay',
-      fontSize: '22px',
+      fontSize: '26px',
       color: '#66e3ff'
     })
     const labelRest = this.scene.add.text(0, 0, '', {
       fontFamily: 'BubbleDisplay',
-      fontSize: '22px',
+      fontSize: '26px',
       color: '#eaf6ff'
     })
     labelMatch.setOrigin(0, 0.5)
