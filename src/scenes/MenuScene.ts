@@ -51,6 +51,8 @@ export class MenuScene extends Phaser.Scene {
   private heroBubble?: Phaser.GameObjects.Sprite
   private heroSpec?: Phaser.GameObjects.Sprite
   private title?: Phaser.GameObjects.Text
+  private subtitle?: Phaser.GameObjects.Text
+  private titleLastWordOffsetX = 0
   private titleBaseY = 96
   private heroBaseY = 110
   private languageDropdown?: LanguageDropdownState
@@ -69,7 +71,8 @@ export class MenuScene extends Phaser.Scene {
     const uiScale = Phaser.Math.Clamp(Math.min(this.scale.width / 1280, this.scale.height / 720), 0.78, 1.2)
     this.uiScale = uiScale
     const centerX = this.scale.width / 2
-    this.titleBaseY = Math.round(96 * uiScale)
+    const titleLift = Math.round(38 * uiScale)
+    this.titleBaseY = Math.round(96 * uiScale) - titleLift
     this.heroBaseY = Math.round(110 * uiScale)
 
     this.cameras.main.fadeIn(650, 4, 10, 18)
@@ -93,6 +96,34 @@ export class MenuScene extends Phaser.Scene {
     this.title.setStroke('rgba(102,227,255,0.22)', 8)
     this.title.setShadow(0, 12, 'rgba(0,0,0,0.35)', 22, true, true)
     this.title.setDepth(10)
+
+    const titleText = this.title.text
+    const lastSpaceIndex = titleText.lastIndexOf(' ')
+    const titlePrefixForLastWord = lastSpaceIndex >= 0 ? titleText.slice(0, lastSpaceIndex + 1) : ''
+    const titlePrefixMeasure = this.add.text(0, 0, titlePrefixForLastWord, {
+      fontFamily: 'BubbleDisplay',
+      fontSize: `${Math.round(64 * uiScale)}px`,
+      color: '#eaf6ff'
+    })
+    titlePrefixMeasure.setVisible(false)
+    this.titleLastWordOffsetX = titlePrefixMeasure.displayWidth
+    titlePrefixMeasure.destroy()
+
+    this.subtitle = this.add.text(0, 0, 'Multilingual', {
+      fontFamily: 'BubbleDisplay',
+      fontSize: `${Math.round(22 * uiScale)}px`,
+      fontStyle: 'italic',
+      color: 'rgba(234,246,255,0.8)'
+    })
+    this.subtitle.setOrigin(0.5, 0)
+    const subtitleGapY = Math.round(2 * uiScale)
+    const titleLeftX = this.title.x - this.title.displayWidth / 2
+    const lastWordWidth = Math.max(0, this.title.displayWidth - this.titleLastWordOffsetX)
+    const lastWordCenterX = titleLeftX + this.titleLastWordOffsetX + lastWordWidth / 2
+    this.subtitle.setX(lastWordCenterX)
+    this.subtitle.setY(this.title.y + this.title.displayHeight / 2 + subtitleGapY)
+    this.subtitle.setShadow(0, 10, 'rgba(0,0,0,0.28)', 16, true, true)
+    this.subtitle.setDepth(10)
 
     const panelWidth = Math.min(Math.round(860 * uiScale), this.scale.width - 60)
     const extraBottom = Math.round(38 * uiScale)
@@ -367,6 +398,7 @@ export class MenuScene extends Phaser.Scene {
 
     const entrance = [
       this.title,
+      this.subtitle,
       panel,
       difficultyTitle,
       wordsLabel,
@@ -443,7 +475,20 @@ export class MenuScene extends Phaser.Scene {
     }
 
     if (this.title) {
-      this.title.setPosition(this.scale.width / 2 + dx * 10, this.titleBaseY + dy * 6)
+      const titleX = this.scale.width / 2 + dx * 10
+      const titleY = this.titleBaseY + dy * 6
+      this.title.setPosition(titleX, titleY)
+
+      if (this.subtitle) {
+        const subtitleGapY = Math.round(2 * this.uiScale)
+        const titleLeftX = titleX - this.title.displayWidth / 2
+        const lastWordWidth = Math.max(0, this.title.displayWidth - this.titleLastWordOffsetX)
+        const lastWordCenterX = titleLeftX + this.titleLastWordOffsetX + lastWordWidth / 2
+        this.subtitle.setPosition(
+          lastWordCenterX,
+          titleY + this.title.displayHeight / 2 + subtitleGapY
+        )
+      }
     }
   }
 
