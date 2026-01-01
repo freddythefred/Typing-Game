@@ -16,6 +16,16 @@ type BackBubble = {
   drift: number
 }
 
+const LANGUAGE_DISPLAY_NAMES: Record<LanguageId, string> = {
+  en: 'English',
+  fr: 'Français',
+  es: 'Español',
+  it: 'Italiano',
+  de: 'Deutsch',
+  ru: 'Русский',
+  ar: 'العربية'
+}
+
 const LANGUAGE_FLAG_TEXTURE_KEYS: Record<LanguageId, string> = {
   en: 'flag-en',
   fr: 'flag-fr',
@@ -24,6 +34,14 @@ const LANGUAGE_FLAG_TEXTURE_KEYS: Record<LanguageId, string> = {
   de: 'flag-de',
   ru: 'flag-ru',
   ar: 'flag-ar'
+}
+
+const LANGUAGE_ORDER: LanguageId[] = ['en', 'fr', 'es', 'it', 'de', 'ru', 'ar']
+
+type LanguageDropdownState = {
+  backdrop: Phaser.GameObjects.Rectangle
+  panel: Phaser.GameObjects.Container
+  items: Phaser.GameObjects.Container[]
 }
 
 export class MenuScene extends Phaser.Scene {
@@ -35,6 +53,8 @@ export class MenuScene extends Phaser.Scene {
   private title?: Phaser.GameObjects.Text
   private titleBaseY = 96
   private heroBaseY = 110
+  private languageDropdown?: LanguageDropdownState
+  private uiScale = 1
 
   constructor() {
     super('Menu')
@@ -47,6 +67,7 @@ export class MenuScene extends Phaser.Scene {
     const language = settings.language
 
     const uiScale = Phaser.Math.Clamp(Math.min(this.scale.width / 1280, this.scale.height / 720), 0.78, 1.2)
+    this.uiScale = uiScale
     const centerX = this.scale.width / 2
     this.titleBaseY = Math.round(96 * uiScale)
     this.heroBaseY = Math.round(110 * uiScale)
@@ -102,6 +123,7 @@ export class MenuScene extends Phaser.Scene {
       .setDepth(11)
       .setAlpha(0)
     applyFlagSizingAndCrop(languageFlag)
+    const languageFlagBaseScale = languageFlag.scaleX
 
     const flagPadding = Math.round(18 * uiScale)
     const panelRight = centerX + panelWidth / 2
@@ -110,6 +132,21 @@ export class MenuScene extends Phaser.Scene {
 
     this.time.delayedCall(300, () => {
       languageFlag.setAlpha(1)
+    })
+
+    languageFlag.setInteractive({ useHandCursor: true })
+    languageFlag.on('pointerover', () => {
+      this.tweens.killTweensOf(languageFlag)
+      this.tweens.add({
+        targets: languageFlag,
+        scale: languageFlagBaseScale * 1.05,
+        duration: 140,
+        ease: 'Sine.easeOut'
+      })
+    })
+    languageFlag.on('pointerout', () => {
+      this.tweens.killTweensOf(languageFlag)
+      this.tweens.add({ targets: languageFlag, scale: languageFlagBaseScale, duration: 180, ease: 'Sine.easeOut' })
     })
 
     const difficultyTitle = this.add.text(centerX, Math.round(188 * uiScale), t(language, 'menu.chooseMode'), {
@@ -283,6 +320,7 @@ export class MenuScene extends Phaser.Scene {
     settingsButton = createButton(this, centerX, settingsY, t(language, 'menu.settings'), () => {
       if (transitioning) return
       transitioning = true
+      languageFlag.disableInteractive()
       playButton?.disableInteractive()
       settingsButton?.disableInteractive()
       changeProfileButton?.disableInteractive()
@@ -295,6 +333,7 @@ export class MenuScene extends Phaser.Scene {
     changeProfileButton = createButton(this, centerX, profileY, t(language, 'menu.changeProfile'), () => {
       if (transitioning) return
       transitioning = true
+      languageFlag.disableInteractive()
       playButton?.disableInteractive()
       settingsButton?.disableInteractive()
       changeProfileButton?.disableInteractive()
@@ -303,6 +342,13 @@ export class MenuScene extends Phaser.Scene {
         this.scene.start('ProfileSelect')
       })
     }, { width: buttonWidth, height: profileHeight, depth: 9 })
+
+    languageFlag.on('pointerup', () => {
+      if (transitioning) return
+      const flagCenterX = Math.round(languageFlag.x - languageFlag.displayWidth / 2)
+      const flagBottomY = Math.round(languageFlag.y + languageFlag.displayHeight)
+      this.toggleLanguageDropdown(flagCenterX, flagBottomY + Math.round(14 * uiScale), Math.round(360 * uiScale))
+    })
 
     const tagline = this.add.text(centerX, 0, t(language, 'menu.tagline'), {
       fontFamily: 'BubbleDisplay',
@@ -357,6 +403,7 @@ export class MenuScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.backdropFx?.destroy()
       this.backdropFx = undefined
+      this.closeLanguageDropdown()
     })
   }
 
@@ -500,5 +547,180 @@ export class MenuScene extends Phaser.Scene {
       .setAlpha(0.12)
       .setDepth(0.2)
       .setBlendMode(Phaser.BlendModes.SCREEN)
+  }
+
+  private applyFlagSizingAndCropFor(flag: Phaser.GameObjects.Image, targetHeight: number) {
+    const targetWidth = Math.round(targetHeight * 1.5)
+    const safeHeight = Math.max(1, flag.height)
+    const scale = targetHeight / safeHeight
+
+    flag.setScale(scale)
+
+    const cropWidth = Math.min(flag.width, Math.round(targetWidth / scale))
+    const cropX = Math.max(0, Math.floor((flag.width - cropWidth) / 2))
+    flag.setCrop(cropX, 0, cropWidth, flag.height)
+    flag.setData('visibleWidth', targetWidth)
+    flag.setData('visibleHeight', targetHeight)
+  }
+
+  private toggleLanguageDropdown(anchorX: number, anchorY: number, width: number) {
+    if (this.languageDropdown) {
+      this.closeLanguageDropdown()
+      return
+    }
+
+    const uiScale = this.uiScale
+    const outerPadding = Math.round(14 * uiScale)
+    const itemHeight = Math.round(58 * uiScale)
+    const pad = Math.round(16 * uiScale)
+    const panelWidth = Math.min(Math.max(width, Math.round(320 * uiScale)), this.scale.width - 40)
+    const panelHeight = outerPadding * 2 + LANGUAGE_ORDER.length * itemHeight
+    const panelRadius = Math.round(18 * uiScale)
+
+    const preferBelowTop = anchorY
+    const preferAboveTop = anchorY - panelHeight
+    const topY =
+      preferBelowTop + panelHeight < this.scale.height - 24 ? preferBelowTop : Math.max(24, preferAboveTop)
+    const panelY = Math.round(topY + panelHeight / 2)
+
+    const backdrop = this.add
+      .rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x061420, 0.92)
+      .setDepth(80)
+      .setInteractive()
+
+    backdrop.on(
+      'pointerdown',
+      (
+        _pointer: Phaser.Input.Pointer,
+        _localX: number,
+        _localY: number,
+        event: Phaser.Types.Input.EventData
+      ) => {
+        event.stopPropagation()
+      }
+    )
+    backdrop.on(
+      'pointerup',
+      (
+        _pointer: Phaser.Input.Pointer,
+        _localX: number,
+        _localY: number,
+        event: Phaser.Types.Input.EventData
+      ) => {
+        event.stopPropagation()
+        this.closeLanguageDropdown()
+      }
+    )
+
+    const panel = createGlassPanel(this, anchorX, panelY, panelWidth, panelHeight, {
+      depth: 81,
+      radius: panelRadius,
+      accent: 0xffcf66,
+      float: false
+    })
+
+    const setItemBorder = (container: Phaser.GameObjects.Container, alpha: number) => {
+      const border = container.getData('border') as Phaser.GameObjects.Graphics
+      const w = container.getData('w') as number
+      const h = container.getData('h') as number
+      const r = container.getData('r') as number
+      border.clear()
+      border.lineStyle(2, 0xffffff, alpha)
+      border.strokeRoundedRect(-w / 2, -h / 2, w, h, r)
+    }
+
+    const setItemInner = (container: Phaser.GameObjects.Container, alpha: number) => {
+      const inner = container.getData('inner') as Phaser.GameObjects.Graphics
+      const w = container.getData('w') as number
+      const h = container.getData('h') as number
+      const r = container.getData('r') as number
+      inner.clear()
+      inner.lineStyle(1, 0xffcf66, alpha)
+      inner.strokeRoundedRect(-w / 2 + 4, -h / 2 + 4, w - 8, h - 8, Math.max(0, r - 4))
+    }
+
+    const items: Phaser.GameObjects.Container[] = []
+    const current = loadSettings().language
+
+    LANGUAGE_ORDER.forEach((langId, index) => {
+      const itemWidth = panelWidth - outerPadding * 2
+      const itemX = anchorX
+      const itemY = Math.round(topY + outerPadding + itemHeight / 2 + index * itemHeight)
+      const item = createGlassPanel(this, itemX, itemY, itemWidth, itemHeight - 6, {
+        depth: 82,
+        radius: Math.round(16 * uiScale),
+        accent: 0xffcf66,
+        float: false
+      })
+
+      item.setSize(itemWidth, itemHeight - 6)
+      item.setInteractive({ useHandCursor: true })
+      item.setData('w', itemWidth)
+      item.setData('h', itemHeight - 6)
+      item.setData('r', Math.round(16 * uiScale))
+      item.setData('language', langId)
+
+      const isSelected = current === langId
+      setItemBorder(item, isSelected ? 0.26 : 0.12)
+      setItemInner(item, isSelected ? 0.34 : 0.16)
+
+      const flag = this.add.image(0, 0, LANGUAGE_FLAG_TEXTURE_KEYS[langId]).setOrigin(0.5)
+      const flagTargetH = Math.round(34 * uiScale)
+      const flagTargetW = Math.round(flagTargetH * 1.5)
+      this.applyFlagSizingAndCropFor(flag, flagTargetH)
+      flag.x = -itemWidth / 2 + pad + flagTargetW / 2
+
+      const label = this.add.text(0, 0, LANGUAGE_DISPLAY_NAMES[langId], {
+        fontFamily: 'BubbleDisplay',
+        fontSize: `${Math.round(22 * uiScale)}px`,
+        color: '#eaf6ff'
+      })
+      label.setOrigin(0, 0.5)
+      label.setShadow(0, 6, 'rgba(0,0,0,0.28)', 12, false, true)
+      label.x = Math.round(flag.x + flagTargetW / 2 + Math.round(12 * uiScale))
+
+      item.add([flag, label])
+
+      item.on('pointerover', () => {
+        this.tweens.add({ targets: item, scale: 1.015, duration: 140, ease: 'Sine.easeOut' })
+        setItemBorder(item, 0.24)
+        setItemInner(item, 0.32)
+      })
+      item.on('pointerout', () => {
+        this.tweens.add({ targets: item, scale: 1, duration: 180, ease: 'Sine.easeOut' })
+        const selectedNow = loadSettings().language === langId
+        setItemBorder(item, selectedNow ? 0.26 : 0.12)
+        setItemInner(item, selectedNow ? 0.34 : 0.16)
+      })
+      item.on('pointerup', () => {
+        const settings = loadSettings()
+        saveSettings({ ...settings, language: langId, difficulty: this.difficultyId })
+        this.closeLanguageDropdown()
+        this.scene.restart()
+      })
+
+      items.push(item)
+    })
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        this.closeLanguageDropdown()
+      }
+    }
+    this.input.keyboard?.on('keydown', onKeyDown)
+
+    this.languageDropdown = { backdrop, panel, items }
+    panel.setData('onKeyDown', onKeyDown)
+  }
+
+  private closeLanguageDropdown() {
+    const dropdown = this.languageDropdown
+    if (!dropdown) return
+    const onKeyDown = dropdown.panel.getData('onKeyDown') as ((event: KeyboardEvent) => void) | undefined
+    if (onKeyDown) this.input.keyboard?.off('keydown', onKeyDown)
+    dropdown.items.forEach((item) => item.destroy(true))
+    dropdown.panel.destroy(true)
+    dropdown.backdrop.destroy()
+    this.languageDropdown = undefined
   }
 }

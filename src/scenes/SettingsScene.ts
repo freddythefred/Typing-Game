@@ -48,13 +48,19 @@ export class SettingsScene extends Phaser.Scene {
   private volumeDownButton?: Phaser.GameObjects.Container
   private volumeUpButton?: Phaser.GameObjects.Container
   private backButton?: Phaser.GameObjects.Container
+  private returnToScene?: string
+  private languageOnlyMode = false
+  private leaving = false
 
   constructor() {
     super('Settings')
   }
 
-  create() {
+  create(data?: { openLanguageDropdown?: boolean; languageOnly?: boolean; returnToScene?: string }) {
     this.settings = loadSettings()
+    this.returnToScene = data?.returnToScene
+    this.languageOnlyMode = Boolean(data?.languageOnly)
+    this.leaving = false
     const uiScale = Phaser.Math.Clamp(Math.min(this.scale.width / 1280, this.scale.height / 720), 0.82, 1.15)
     this.uiScale = uiScale
     const centerX = Math.round(this.scale.width / 2)
@@ -173,27 +179,14 @@ export class SettingsScene extends Phaser.Scene {
       { width: buttonWidth, height: buttonHeight, depth: 9, accent: 0xffcf66 }
     )
 
-    let transitioning = false
     this.backButton = createButton(
       this,
       centerX,
       this.scale.height - Math.round(90 * uiScale),
       t(this.settings.language, 'common.back'),
       () => {
-        if (transitioning) return
-        transitioning = true
-        this.backButton?.disableInteractive()
-        this.closeLanguageDropdown()
-        this.languageRow.disableInteractive()
-        this.languageButton?.disableInteractive()
-        this.volumeDownButton?.disableInteractive()
-        this.volumeUpButton?.disableInteractive()
-
-        saveSettings(this.settings)
-        this.cameras.main.fadeOut(240, 4, 10, 18)
-        this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-          this.scene.start('Menu')
-        })
+        this.closeLanguageDropdown({ returnIfLanguageOnly: false })
+        this.startReturnTo('Menu')
       },
       {
         width: Math.min(Math.round(260 * uiScale), this.scale.width - 80),
@@ -211,6 +204,9 @@ export class SettingsScene extends Phaser.Scene {
     vignette.setScale(Math.max(this.scale.width, this.scale.height) / 512)
 
     this.refresh()
+    if (data?.openLanguageDropdown) {
+      this.toggleLanguageDropdown(centerX, languageY, Math.round(360 * uiScale))
+    }
 
     this.scale.on('resize', () => this.scene.restart())
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -279,7 +275,7 @@ export class SettingsScene extends Phaser.Scene {
 
   private toggleLanguageDropdown(anchorX: number, anchorY: number, width: number) {
     if (this.languageDropdown) {
-      this.closeLanguageDropdown()
+      this.closeLanguageDropdown({ returnIfLanguageOnly: true })
       return
     }
 
@@ -323,7 +319,7 @@ export class SettingsScene extends Phaser.Scene {
         event: Phaser.Types.Input.EventData
       ) => {
         event.stopPropagation()
-        this.closeLanguageDropdown()
+        this.closeLanguageDropdown({ returnIfLanguageOnly: true })
       }
     )
 
@@ -410,7 +406,7 @@ export class SettingsScene extends Phaser.Scene {
         this.settings.language = language
         this.refresh()
         this.pulse(this.languageRow)
-        this.closeLanguageDropdown()
+        this.closeLanguageDropdown({ returnIfLanguageOnly: true })
       })
 
       items.push(item)
@@ -419,12 +415,33 @@ export class SettingsScene extends Phaser.Scene {
     this.languageDropdown = { backdrop, panel, items }
   }
 
-  private closeLanguageDropdown() {
+  private closeLanguageDropdown(options?: { returnIfLanguageOnly?: boolean }) {
     const dropdown = this.languageDropdown
     if (!dropdown) return
     dropdown.items.forEach((item) => item.destroy(true))
     dropdown.panel.destroy(true)
     dropdown.backdrop.destroy()
     this.languageDropdown = undefined
+
+    if (options?.returnIfLanguageOnly && this.languageOnlyMode && this.returnToScene) {
+      this.startReturnTo(this.returnToScene)
+    }
+  }
+
+  private startReturnTo(sceneKey: string) {
+    if (this.leaving) return
+    this.leaving = true
+
+    this.backButton?.disableInteractive()
+    this.languageRow?.disableInteractive()
+    this.languageButton?.disableInteractive()
+    this.volumeDownButton?.disableInteractive()
+    this.volumeUpButton?.disableInteractive()
+
+    saveSettings(this.settings)
+    this.cameras.main.fadeOut(240, 4, 10, 18)
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      this.scene.start(sceneKey)
+    })
   }
 }
