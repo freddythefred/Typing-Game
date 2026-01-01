@@ -284,7 +284,31 @@ export class SettingsScene extends Phaser.Scene {
       .rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x061420, 0.98)
       .setDepth(44)
       .setInteractive()
-    backdrop.on('pointerdown', () => this.closeLanguageDropdown())
+
+    backdrop.on(
+      'pointerdown',
+      (
+        _pointer: Phaser.Input.Pointer,
+        _localX: number,
+        _localY: number,
+        event: Phaser.Types.Input.EventData
+      ) => {
+        event.stopPropagation()
+      }
+    )
+
+    backdrop.on(
+      'pointerup',
+      (
+        _pointer: Phaser.Input.Pointer,
+        _localX: number,
+        _localY: number,
+        event: Phaser.Types.Input.EventData
+      ) => {
+        event.stopPropagation()
+        this.closeLanguageDropdown()
+      }
+    )
 
     const panel = createGlassPanel(this, anchorX, panelY, panelWidth, panelHeight, {
       depth: 45,
