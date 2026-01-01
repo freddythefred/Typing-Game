@@ -115,7 +115,7 @@ export class ResultScene extends Phaser.Scene {
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (transitioning) return
-      if (event.key === 'Enter' || event.key === 'r' || event.key === 'R') {
+      if (event.key === 'Enter') {
         startWithFade(() => this.scene.start('Game', { difficulty: resolvedDifficulty }))
         return
       }
