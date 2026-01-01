@@ -7,6 +7,7 @@ import { getBestScore } from '../systems/BestScoreStore'
 import { createUnderwaterBackground, type UnderwaterBackground } from '../ui/fx/UnderwaterBackground'
 import { ensureDefaultProfile, getActiveProfileId } from '../systems/ProfileStore'
 import type { LanguageId } from '../data/wordBank'
+import { difficultyLabel, formatInt, t } from '../i18n/i18n'
 
 type BackBubble = {
   sprite: Phaser.GameObjects.Sprite
@@ -19,6 +20,9 @@ const LANGUAGE_FLAG_TEXTURE_KEYS: Record<LanguageId, string> = {
   en: 'flag-en',
   fr: 'flag-fr',
   es: 'flag-es',
+  it: 'flag-it',
+  de: 'flag-de',
+  ru: 'flag-ru',
   ar: 'flag-ar'
 }
 
@@ -40,6 +44,7 @@ export class MenuScene extends Phaser.Scene {
     const settings = loadSettings()
     this.difficultyId = settings.difficulty
     const activeProfileId = getActiveProfileId() ?? ensureDefaultProfile().id
+    const language = settings.language
 
     const uiScale = Phaser.Math.Clamp(Math.min(this.scale.width / 1280, this.scale.height / 720), 0.78, 1.2)
     const centerX = this.scale.width / 2
@@ -58,7 +63,7 @@ export class MenuScene extends Phaser.Scene {
     this.createBackgroundBubbles()
     this.createHeroBubble(uiScale)
 
-    this.title = this.add.text(centerX, this.titleBaseY, 'Bubble Type', {
+    this.title = this.add.text(centerX, this.titleBaseY, t(language, 'menu.title'), {
       fontFamily: 'BubbleDisplay',
       fontSize: `${Math.round(64 * uiScale)}px`,
       color: '#eaf6ff'
@@ -107,7 +112,7 @@ export class MenuScene extends Phaser.Scene {
       languageFlag.setAlpha(1)
     })
 
-    const difficultyTitle = this.add.text(centerX, Math.round(188 * uiScale), 'Choose Mode', {
+    const difficultyTitle = this.add.text(centerX, Math.round(188 * uiScale), t(language, 'menu.chooseMode'), {
       fontFamily: 'BubbleDisplay',
       fontSize: `${Math.round(20 * uiScale)}px`,
       color: 'rgba(234,246,255,0.72)'
@@ -142,14 +147,14 @@ export class MenuScene extends Phaser.Scene {
     const wordsLabelY = Math.round(wordsRowY - labelOffsetY)
     const phrasesLabelY = Math.round(phrasesRowY - labelOffsetY)
 
-    const wordsLabel = this.add.text(leftEdgeX, wordsLabelY, 'Words', {
+    const wordsLabel = this.add.text(leftEdgeX, wordsLabelY, t(language, 'menu.words'), {
       ...sectionLabelStyle,
       color: 'rgba(102,227,255,0.82)'
     })
     wordsLabel.setOrigin(0, 0.5)
     wordsLabel.setDepth(10)
 
-    const phrasesLabel = this.add.text(leftEdgeX, phrasesLabelY, 'Phrases', {
+    const phrasesLabel = this.add.text(leftEdgeX, phrasesLabelY, t(language, 'menu.phrases'), {
       ...sectionLabelStyle,
       color: 'rgba(255,207,102,0.82)'
     })
@@ -185,7 +190,7 @@ export class MenuScene extends Phaser.Scene {
       card.addAt(halo, 1)
       card.setData('halo', halo)
 
-      const label = this.add.text(0, -16, entry.label, {
+      const label = this.add.text(0, -16, difficultyLabel(language, entry.id), {
         fontFamily: 'BubbleDisplay',
         fontSize: `${Math.round(18 * uiScale)}px`,
         color: '#eaf6ff'
@@ -193,16 +198,16 @@ export class MenuScene extends Phaser.Scene {
       label.setOrigin(0.5)
       label.setShadow(0, 4, 'rgba(0,0,0,0.35)', 10, false, true)
 
-      const sub = this.add.text(0, 6, entry.phraseMode ? 'Phrases' : 'Words', {
+      const sub = this.add.text(0, 6, entry.phraseMode ? t(language, 'menu.phrases') : t(language, 'menu.words'), {
         fontFamily: 'BubbleDisplay',
         fontSize: `${Math.round(13 * uiScale)}px`,
         color: 'rgba(234,246,255,0.62)'
       })
       sub.setOrigin(0.5)
 
-      const best = getBestScore(activeProfileId, settings.language, entry.id)
-      const bestText = best > 0 ? best.toLocaleString() : '0'
-      const bestLabel = this.add.text(0, 24, `Best: ${bestText}`, {
+      const best = getBestScore(activeProfileId, language, entry.id)
+      const bestText = formatInt(language, best > 0 ? best : 0)
+      const bestLabel = this.add.text(0, 24, t(language, 'menu.best', { value: bestText }), {
         fontFamily: 'BubbleDisplay',
         fontSize: `${Math.round(12 * uiScale)}px`,
         color: 'rgba(234,246,255,0.55)'
@@ -259,7 +264,7 @@ export class MenuScene extends Phaser.Scene {
     let settingsButton: Phaser.GameObjects.Container | undefined
     let changeProfileButton: Phaser.GameObjects.Container | undefined
 
-    playButton = createButton(this, centerX, playY, 'Play', () => {
+    playButton = createButton(this, centerX, playY, t(language, 'menu.play'), () => {
       if (transitioning) return
       transitioning = true
       playButton?.disableInteractive()
@@ -275,7 +280,7 @@ export class MenuScene extends Phaser.Scene {
       })
     }, { width: buttonWidth, height: playHeight, depth: 9 })
 
-    settingsButton = createButton(this, centerX, settingsY, 'Settings', () => {
+    settingsButton = createButton(this, centerX, settingsY, t(language, 'menu.settings'), () => {
       if (transitioning) return
       transitioning = true
       playButton?.disableInteractive()
@@ -287,7 +292,7 @@ export class MenuScene extends Phaser.Scene {
       })
     }, { width: buttonWidth, height: settingsHeight, depth: 9, accent: 0xffcf66 })
 
-    changeProfileButton = createButton(this, centerX, profileY, 'Change Profile', () => {
+    changeProfileButton = createButton(this, centerX, profileY, t(language, 'menu.changeProfile'), () => {
       if (transitioning) return
       transitioning = true
       playButton?.disableInteractive()
@@ -299,7 +304,7 @@ export class MenuScene extends Phaser.Scene {
       })
     }, { width: buttonWidth, height: profileHeight, depth: 9 })
 
-    const tagline = this.add.text(centerX, 0, 'Type fast. Stay afloat.', {
+    const tagline = this.add.text(centerX, 0, t(language, 'menu.tagline'), {
       fontFamily: 'BubbleDisplay',
       fontSize: `${Math.round(18 * uiScale)}px`,
       color: 'rgba(234,246,255,0.6)'

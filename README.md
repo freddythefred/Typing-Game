@@ -29,6 +29,9 @@ Edit the language files:
 - `src/data/words.en.json`
 - `src/data/words.fr.json`
 - `src/data/words.es.json`
+- `src/data/words.it.json`
+- `src/data/words.de.json`
+- `src/data/words.ru.json`
 - `src/data/words.ar.json`
 
 Each file contains four arrays:

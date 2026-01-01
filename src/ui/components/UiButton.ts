@@ -47,6 +47,7 @@ export function createButton(
   text.setShadow(0, 3, 'rgba(0,0,0,0.35)', 10, false, true)
 
   panel.add(text)
+  panel.setData('labelText', text)
   panel.setSize(width, height)
   panel.setInteractive({ useHandCursor: true })
 
@@ -109,4 +110,10 @@ export function createButton(
   })
 
   return panel
+}
+
+export function setButtonLabel(button: Phaser.GameObjects.Container, label: string) {
+  const text = button.getData('labelText') as Phaser.GameObjects.Text | undefined
+  if (!text) return
+  text.setText(label)
 }

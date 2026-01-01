@@ -2,6 +2,7 @@ import Phaser from 'phaser'
 import { createButton } from '../ui/components/UiButton'
 import { createGlassPanel } from '../ui/components/GlassPanel'
 import { createUnderwaterBackground, type UnderwaterBackground } from '../ui/fx/UnderwaterBackground'
+import { loadSettings } from '../systems/SettingsStore'
 import {
   addProfile,
   deleteProfile,
@@ -13,6 +14,8 @@ import {
   setActiveProfileId
 } from '../systems/ProfileStore'
 import { deleteProfileScores, migrateLegacyScoresToProfile } from '../systems/BestScoreStore'
+import { t } from '../i18n/i18n'
+import { showAlertDialog, showConfirmDialog, showPromptDialog } from '../ui/components/ModalDialog'
 
 export class ProfileSelectScene extends Phaser.Scene {
   private backdropFx?: UnderwaterBackground
@@ -25,6 +28,7 @@ export class ProfileSelectScene extends Phaser.Scene {
 
   create() {
     ensureDefaultProfile()
+    const language = loadSettings().language
 
     const uiScale = Phaser.Math.Clamp(Math.min(this.scale.width / 1280, this.scale.height / 720), 0.82, 1.15)
     const centerX = this.scale.width / 2
@@ -51,7 +55,7 @@ export class ProfileSelectScene extends Phaser.Scene {
     })
 
     this.add
-      .text(centerX, Math.round(120 * uiScale), 'Choose Profile', {
+      .text(centerX, Math.round(120 * uiScale), t(language, 'profile.title'), {
         fontFamily: 'BubbleDisplay',
         fontSize: `${Math.round(52 * uiScale)}px`,
         color: '#eaf6ff'
@@ -188,21 +192,39 @@ export class ProfileSelectScene extends Phaser.Scene {
     let renameButton: Phaser.GameObjects.Container | undefined
     let deleteButton: Phaser.GameObjects.Container | undefined
 
-    addButton = createButton(this, rightX, midRowY, 'Add Profile', () => {
+    addButton = createButton(this, rightX, midRowY, t(language, 'profile.addProfile'), () => {
       if (transitioning) return
       if (loadProfiles().length >= MAX_PROFILES) {
-        window.alert(`Maximum ${MAX_PROFILES} profiles.`)
+        void showAlertDialog(this, {
+          title: t(language, 'profile.addProfile'),
+          message: t(language, 'profile.maxProfiles', { max: MAX_PROFILES }),
+          okLabel: t(language, 'common.ok'),
+          accent: 0xffcf66
+        })
         return
       }
-      const name = window.prompt('Profile name?')
-      if (!name) return
-      const created = addProfile(name)
-      if (!created) return
-      this.selectedId = created.id
-      render()
+
+      const normalize = (v: string) => v.trim().replace(/\s+/g, ' ')
+      void showPromptDialog(this, {
+        title: t(language, 'profile.addProfile'),
+        message: t(language, 'profile.namePrompt'),
+        confirmLabel: t(language, 'common.ok'),
+        cancelLabel: t(language, 'common.cancel'),
+        placeholder: t(language, 'profile.fallbackName'),
+        maxLength: 24,
+        normalize,
+        validate: (v) => (!normalize(v) ? t(language, 'profile.nameRequired') : null)
+      }).then((result) => {
+        const name = result ? normalize(result) : ''
+        if (!name) return
+        const created = addProfile(name)
+        if (!created) return
+        this.selectedId = created.id
+        render()
+      })
     }, { width: buttonWidth, height: buttonHeight, depth: 10, accent: 0xffcf66 })
 
-    continueButton = createButton(this, rightX, bottomRowY, 'Continue', () => {
+    continueButton = createButton(this, rightX, bottomRowY, t(language, 'common.continue'), () => {
       if (transitioning) return
       if (!this.selectedId) return
       transitioning = true
@@ -226,18 +248,30 @@ export class ProfileSelectScene extends Phaser.Scene {
       this.time.delayedCall(280, go)
     }, { width: buttonWidth, height: buttonHeight, depth: 10, accent: 0x66e3ff })
 
-    renameButton = createButton(this, leftX, midRowY, 'Rename', () => {
+    renameButton = createButton(this, leftX, midRowY, t(language, 'common.rename'), () => {
       if (transitioning) return
       if (!this.selectedId) return
       const current = loadProfiles().find((p) => p.id === this.selectedId)
-      const nextName = window.prompt('New profile name?', current?.name ?? '')
-      if (!nextName) return
-      const updated = renameProfile(this.selectedId, nextName)
-      if (!updated) return
-      render()
+      const normalize = (v: string) => v.trim().replace(/\s+/g, ' ')
+      void showPromptDialog(this, {
+        title: t(language, 'common.rename'),
+        message: t(language, 'profile.newNamePrompt'),
+        confirmLabel: t(language, 'common.ok'),
+        cancelLabel: t(language, 'common.cancel'),
+        initialValue: current?.name ?? '',
+        maxLength: 24,
+        normalize,
+        validate: (v) => (!normalize(v) ? t(language, 'profile.newNameRequired') : null)
+      }).then((result) => {
+        const nextName = result ? normalize(result) : ''
+        if (!nextName) return
+        const updated = renameProfile(this.selectedId!, nextName)
+        if (!updated) return
+        render()
+      })
     }, { width: buttonWidth, height: buttonHeight, depth: 10, accent: 0xffcf66 })
 
-    deleteButton = createButton(this, leftX, bottomRowY, 'Delete', () => {
+    deleteButton = createButton(this, leftX, bottomRowY, t(language, 'common.delete'), () => {
       if (transitioning) return
       if (!this.selectedId) return
 
@@ -245,17 +279,25 @@ export class ProfileSelectScene extends Phaser.Scene {
       if (profilesNow.length <= 1) return
 
       const target = profilesNow.find((p) => p.id === this.selectedId)
-      const ok = window.confirm(`Delete profile "${target?.name ?? 'Profile'}"?`)
-      if (!ok) return
+      const name = target?.name ?? t(language, 'profile.fallbackName')
+      void showConfirmDialog(this, {
+        title: t(language, 'common.delete'),
+        message: t(language, 'profile.deleteConfirm', { name }),
+        confirmLabel: t(language, 'common.delete'),
+        cancelLabel: t(language, 'common.cancel'),
+        accent: 0xff5a7a
+      }).then((ok) => {
+        if (!ok) return
 
-      const deletedId = this.selectedId
-      const deleted = deleteProfile(deletedId)
-      if (!deleted) return
-      deleteProfileScores(deletedId)
+        const deletedId = this.selectedId!
+        const deleted = deleteProfile(deletedId)
+        if (!deleted) return
+        deleteProfileScores(deletedId)
 
-      const after = loadProfiles()
-      this.selectedId = getActiveProfileId() ?? after[0]?.id
-      render()
+        const after = loadProfiles()
+        this.selectedId = getActiveProfileId() ?? after[0]?.id
+        render()
+      })
     }, { width: buttonWidth, height: buttonHeight, depth: 10, accent: 0xff5a7a })
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {

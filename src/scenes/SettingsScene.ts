@@ -1,14 +1,18 @@
 ﻿import Phaser from 'phaser'
-import { createButton } from '../ui/components/UiButton'
+import { createButton, setButtonLabel } from '../ui/components/UiButton'
 import { createGlassPanel } from '../ui/components/GlassPanel'
 import { loadSettings, saveSettings, type Settings } from '../systems/SettingsStore'
 import { createUnderwaterBackground, type UnderwaterBackground } from '../ui/fx/UnderwaterBackground'
 import type { LanguageId } from '../data/wordBank'
+import { formatInt, t } from '../i18n/i18n'
 
 const LANGUAGE_DISPLAY_NAMES: Record<LanguageId, string> = {
   en: 'English',
   fr: 'Français',
   es: 'Español',
+  it: 'Italiano',
+  de: 'Deutsch',
+  ru: 'Русский',
   ar: 'العربية'
 }
 
@@ -16,10 +20,13 @@ const LANGUAGE_FLAG_TEXTURE_KEYS: Record<LanguageId, string> = {
   en: 'flag-en',
   fr: 'flag-fr',
   es: 'flag-es',
+  it: 'flag-it',
+  de: 'flag-de',
+  ru: 'flag-ru',
   ar: 'flag-ar'
 }
 
-const LANGUAGE_ORDER: LanguageId[] = ['en', 'fr', 'es', 'ar']
+const LANGUAGE_ORDER: LanguageId[] = ['en', 'fr', 'es', 'it', 'de', 'ru', 'ar']
 
 type LanguageDropdownState = {
   backdrop: Phaser.GameObjects.Rectangle
@@ -30,12 +37,17 @@ type LanguageDropdownState = {
 export class SettingsScene extends Phaser.Scene {
   private settings!: Settings
   private uiScale = 1
+  private titleText!: Phaser.GameObjects.Text
   private languageRow!: Phaser.GameObjects.Container
   private languageFlag!: Phaser.GameObjects.Image
   private languageText!: Phaser.GameObjects.Text
   private volumeText!: Phaser.GameObjects.Text
   private backdropFx?: UnderwaterBackground
   private languageDropdown?: LanguageDropdownState
+  private languageButton?: Phaser.GameObjects.Container
+  private volumeDownButton?: Phaser.GameObjects.Container
+  private volumeUpButton?: Phaser.GameObjects.Container
+  private backButton?: Phaser.GameObjects.Container
 
   constructor() {
     super('Settings')
@@ -75,8 +87,8 @@ export class SettingsScene extends Phaser.Scene {
     const languageY = Math.round(204 * uiScale)
     const volumeY = Math.round(268 * uiScale)
 
-    this.add
-      .text(centerX, Math.round(120 * uiScale), 'Settings', {
+    this.titleText = this.add
+      .text(centerX, Math.round(120 * uiScale), t(this.settings.language, 'settings.title'), {
         fontFamily: 'BubbleDisplay',
         fontSize: `${Math.round(52 * uiScale)}px`,
         color: '#eaf6ff'
@@ -122,11 +134,11 @@ export class SettingsScene extends Phaser.Scene {
       .setDepth(10)
       .setShadow(0, 6, 'rgba(0,0,0,0.28)', 12, false, true)
 
-    const languageButton = createButton(
+    this.languageButton = createButton(
       this,
       centerX - buttonOffsetX,
       languageY,
-      'Language',
+      t(this.settings.language, 'settings.language'),
       () => this.toggleLanguageDropdown(centerX, languageY, Math.round(360 * uiScale)),
       { width: buttonWidth, height: buttonHeight, depth: 9, accent: 0xffcf66 }
     )
@@ -135,11 +147,11 @@ export class SettingsScene extends Phaser.Scene {
       this.toggleLanguageDropdown(centerX, languageY, Math.round(360 * uiScale))
     })
 
-    const volumeDown = createButton(
+    this.volumeDownButton = createButton(
       this,
       centerX - buttonOffsetX,
       volumeY,
-      'Volume -',
+      t(this.settings.language, 'settings.volumeDown'),
       () => {
         this.settings.volume = Math.max(0, Math.round((this.settings.volume - 0.1) * 10) / 10)
         this.refresh()
@@ -148,11 +160,11 @@ export class SettingsScene extends Phaser.Scene {
       { width: buttonWidth, height: buttonHeight, depth: 9, accent: 0xffcf66 }
     )
 
-    const volumeUp = createButton(
+    this.volumeUpButton = createButton(
       this,
       centerX + buttonOffsetX,
       volumeY,
-      'Volume +',
+      t(this.settings.language, 'settings.volumeUp'),
       () => {
         this.settings.volume = Math.min(1, Math.round((this.settings.volume + 0.1) * 10) / 10)
         this.refresh()
@@ -162,20 +174,20 @@ export class SettingsScene extends Phaser.Scene {
     )
 
     let transitioning = false
-    const backButton = createButton(
+    this.backButton = createButton(
       this,
       centerX,
       this.scale.height - Math.round(90 * uiScale),
-      'Back',
+      t(this.settings.language, 'common.back'),
       () => {
         if (transitioning) return
         transitioning = true
-        backButton.disableInteractive()
+        this.backButton?.disableInteractive()
         this.closeLanguageDropdown()
         this.languageRow.disableInteractive()
-        languageButton.disableInteractive()
-        volumeDown.disableInteractive()
-        volumeUp.disableInteractive()
+        this.languageButton?.disableInteractive()
+        this.volumeDownButton?.disableInteractive()
+        this.volumeUpButton?.disableInteractive()
 
         saveSettings(this.settings)
         this.cameras.main.fadeOut(240, 4, 10, 18)
@@ -215,11 +227,16 @@ export class SettingsScene extends Phaser.Scene {
   private refresh() {
     saveSettings(this.settings)
     const language = this.settings.language
+    this.titleText.setText(t(language, 'settings.title'))
     this.languageText.setText(LANGUAGE_DISPLAY_NAMES[language])
     this.languageFlag.setTexture(LANGUAGE_FLAG_TEXTURE_KEYS[language])
     this.applyFlagSizingAndCrop()
     this.layoutLanguageRow()
-    this.volumeText.setText(`${Math.round(this.settings.volume * 100)}%`)
+    this.volumeText.setText(`${formatInt(language, Math.round(this.settings.volume * 100))}%`)
+    if (this.languageButton) setButtonLabel(this.languageButton, t(language, 'settings.language'))
+    if (this.volumeDownButton) setButtonLabel(this.volumeDownButton, t(language, 'settings.volumeDown'))
+    if (this.volumeUpButton) setButtonLabel(this.volumeUpButton, t(language, 'settings.volumeUp'))
+    if (this.backButton) setButtonLabel(this.backButton, t(language, 'common.back'))
   }
 
   private applyFlagSizingAndCrop() {

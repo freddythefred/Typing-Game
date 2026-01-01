@@ -12,6 +12,7 @@ import { createGlassPanel } from '../ui/components/GlassPanel'
 import { createUnderwaterBackground, type UnderwaterBackground } from '../ui/fx/UnderwaterBackground'
 import { ensureDefaultProfile, getActiveProfileId } from '../systems/ProfileStore'
 import { getBestScore } from '../systems/BestScoreStore'
+import { formatFixed, formatInt, t } from '../i18n/i18n'
 
 type HudRefs = {
   panel: Phaser.GameObjects.Container
@@ -617,7 +618,7 @@ export class GameScene extends Phaser.Scene {
 
     let transitioning = false
 
-    const button = createButton(this, x, y, 'End Game', () => {
+    const button = createButton(this, x, y, t(this.settings.language, 'game.endGame'), () => {
       if (transitioning) return
       transitioning = true
       button.disableInteractive()
@@ -648,7 +649,7 @@ export class GameScene extends Phaser.Scene {
       }
     )
 
-    const scoreLabel = this.add.text(-panelWidth / 2 + pad, -panelHeight / 2 + Math.round(18 * uiScale), 'SCORE', {
+    const scoreLabel = this.add.text(-panelWidth / 2 + pad, -panelHeight / 2 + Math.round(18 * uiScale), t(this.settings.language, 'hud.score'), {
       fontFamily: 'BubbleDisplay',
       fontSize: `${Math.round(12 * uiScale)}px`,
       color: 'rgba(234,246,255,0.62)'
@@ -663,7 +664,7 @@ export class GameScene extends Phaser.Scene {
     score.setOrigin(0, 0)
     score.setShadow(0, 8, 'rgba(0,0,0,0.35)', 18, false, true)
 
-    const comboLabel = this.add.text(panelWidth / 2 - pad, -panelHeight / 2 + Math.round(18 * uiScale), 'COMBO', {
+    const comboLabel = this.add.text(panelWidth / 2 - pad, -panelHeight / 2 + Math.round(18 * uiScale), t(this.settings.language, 'hud.combo'), {
       fontFamily: 'BubbleDisplay',
       fontSize: `${Math.round(12 * uiScale)}px`,
       color: 'rgba(234,246,255,0.62)'
@@ -778,6 +779,7 @@ export class GameScene extends Phaser.Scene {
 
     const stats = this.typingSystem.getStats()
     const accuracy = stats.totalKeys > 0 ? (stats.correctKeys / stats.totalKeys) * 100 : 100
+    const language = this.settings.language
 
     if (this.score !== this.lastScore) {
       if (this.score > this.lastScore) this.punchText(this.hud.score, 1.06)
@@ -817,7 +819,7 @@ export class GameScene extends Phaser.Scene {
 
     const bestScore = Math.max(this.modeBestScore, this.score)
     if (bestScore !== this.lastBestScore) {
-      const bestText = `Best ${bestScore.toLocaleString()}`
+      const bestText = t(language, 'hud.best', { value: formatInt(language, bestScore) })
       if (this.hud.best.text !== bestText) this.hud.best.setText(bestText)
       this.lastBestScore = bestScore
     }
@@ -826,13 +828,13 @@ export class GameScene extends Phaser.Scene {
     if (this.hud.combo.text !== comboText) this.hud.combo.setText(comboText)
 
     if (stats.totalKeys !== this.lastTotalKeys || stats.correctKeys !== this.lastCorrectKeys) {
-      const accuracyText = `Accuracy ${accuracy.toFixed(0)}%`
+      const accuracyText = t(language, 'hud.accuracy', { value: formatFixed(language, accuracy, 0) })
       if (this.hud.accuracy.text !== accuracyText) this.hud.accuracy.setText(accuracyText)
       this.lastTotalKeys = stats.totalKeys
       this.lastCorrectKeys = stats.correctKeys
     }
 
-    const livesText = `Lives ${this.lives}/5`
+    const livesText = t(language, 'hud.lives', { value: this.lives })
     if (this.hud.lives.text !== livesText) this.hud.lives.setText(livesText)
 
     if (this.lives !== this.lastLivesVisual) {

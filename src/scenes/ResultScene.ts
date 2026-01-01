@@ -7,6 +7,7 @@ import { loadSettings } from '../systems/SettingsStore'
 import { getBestScore, recordBestScore } from '../systems/BestScoreStore'
 import type { LanguageId } from '../data/wordBank'
 import { ensureDefaultProfile, getActiveProfileId } from '../systems/ProfileStore'
+import { formatFixed, formatInt, t } from '../i18n/i18n'
 
 type ResultData = {
   score: number
@@ -70,7 +71,7 @@ export class ResultScene extends Phaser.Scene {
     })
 
     this.add
-      .text(centerX, Math.round(120 * uiScale), 'Run Complete', {
+      .text(centerX, Math.round(120 * uiScale), t(resolvedLanguage, 'result.title'), {
         fontFamily: 'BubbleDisplay',
         fontSize: `${Math.round(54 * uiScale)}px`,
         color: '#eaf6ff'
@@ -81,12 +82,15 @@ export class ResultScene extends Phaser.Scene {
       .setShadow(0, 12, 'rgba(0,0,0,0.35)', 22, true, true)
 
     const stats = [
-      `Score: ${scoreValue.toLocaleString()}`,
-      `Best Score: ${bestScore.toLocaleString()}${isNewBest ? ' (NEW!)' : ''}`,
-      `Accuracy: ${(resolved.accuracy * 100).toFixed(0)}%`,
-      `Longest Streak: ${resolved.longestCombo}`,
-      `Bubbles Popped: ${resolved.popped}`,
-      `Chars/sec: ${resolved.cps.toFixed(1)}`
+      t(resolvedLanguage, 'result.score', { value: formatInt(resolvedLanguage, scoreValue) }),
+      t(resolvedLanguage, 'result.bestScore', {
+        value: formatInt(resolvedLanguage, bestScore),
+        newBest: isNewBest ? t(resolvedLanguage, 'result.newBest') : ''
+      }),
+      t(resolvedLanguage, 'result.accuracy', { value: formatFixed(resolvedLanguage, resolved.accuracy * 100, 0) }),
+      t(resolvedLanguage, 'result.longestStreak', { value: formatInt(resolvedLanguage, resolved.longestCombo) }),
+      t(resolvedLanguage, 'result.bubblesPopped', { value: formatInt(resolvedLanguage, resolved.popped) }),
+      t(resolvedLanguage, 'result.charsPerSec', { value: formatFixed(resolvedLanguage, resolved.cps, 1) })
     ]
 
     const statTexts = stats.map((line, index) =>
@@ -149,7 +153,7 @@ export class ResultScene extends Phaser.Scene {
       this,
       centerX,
       this.scale.height - Math.round(160 * uiScale),
-      'Play Again',
+      t(resolvedLanguage, 'result.playAgain'),
       () => startWithFade(() => this.scene.start('Game', { difficulty: resolvedDifficulty })),
       { width: buttonWidth, height: Math.round(60 * uiScale), depth: 10, accent: 0xffcf66 }
     )
@@ -158,7 +162,7 @@ export class ResultScene extends Phaser.Scene {
       this,
       centerX,
       this.scale.height - Math.round(90 * uiScale),
-      'Back to Menu',
+      t(resolvedLanguage, 'result.backToMenu'),
       () => startWithFade(() => this.scene.start('Menu')),
       { width: buttonWidth, height: Math.round(60 * uiScale), depth: 10 }
     )

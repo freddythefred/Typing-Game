@@ -23,6 +23,9 @@ export class PreloadScene extends Phaser.Scene {
     this.load.svg('flag-fr', 'flags/fr.svg', { width: 384, height: 256 })
     this.load.svg('flag-en', 'flags/uk.svg', { width: 512, height: 256 })
     this.load.image('flag-es', 'flags/es.png')
+    this.load.svg('flag-it', 'flags/it.svg', { width: 384, height: 256 })
+    this.load.svg('flag-de', 'flags/de.svg', { width: 384, height: 256 })
+    this.load.svg('flag-ru', 'flags/ru.svg', { width: 384, height: 256 })
     this.load.image('flag-ar', 'flags/ar.png')
   }
 
