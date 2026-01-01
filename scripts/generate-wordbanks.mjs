@@ -23,6 +23,8 @@ const BANNED_EN = new Set([
   'dick',
   'piss',
   'rape',
+  'cancer',
+  'cancers',
   'porn',
   'porno',
   'nude',
@@ -50,6 +52,8 @@ const BANNED_FR = new Set([
   'salope',
   'encule',
   'enfoire',
+  'cancer',
+  'cancers',
   'porno',
   'porn',
   'nazi'
